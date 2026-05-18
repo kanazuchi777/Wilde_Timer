@@ -1,174 +1,310 @@
-# Wilde Timer Wiring (from current firmware code)
+﻿# Wilde Timer Firmware
 
-This README is based on the actual pins used in:
-`src/wilde_timer_firmware/main.cpp`
+This documentation reflects the current implementation in `src/wilde_timer_firmware/main.cpp`.
+If README and code ever differ, treat the code as the source of truth.
 
-If code and wiring doc ever differ, trust the code.
+## Project Structure
 
-## Source structure
+- `src/wilde_timer_firmware/main.cpp` - full runtime logic (ESP-NOW, CRSF, RX5808, OSD, lap timing, SD)
+- `src/wilde_timer_firmware/modules/parse_utils.h/.cpp` - config parsing and validation helpers
+- `platformio.ini` - build environments (`esp32D`, `esp32-s3-devkitc-1`)
 
-- `src/wilde_timer_firmware/main.cpp`: main runtime loop and feature integration
-- `src/wilde_timer_firmware/modules/parse_utils.h/.cpp`: shared parsing/validation helpers used by config loader and runtime parsers
+## Build and Flash
 
-This split keeps behavior unchanged while reducing `main.cpp` size and preparing for further modularization.
+- ESP32 DevKit (`esp32D`):
+  - `pio run -e esp32D -t upload`
+- ESP32-S3 DevKitC:
+  - `pio run -e esp32-s3-devkitc-1 -t upload`
+- Serial monitor:
+  - `pio device monitor -b 115200`
 
-## Build / Flash
+## Hardware Pinout (from code)
 
-1. ESP32-S3:
-   - `pio run -e esp32-s3-devkitc-1 -t upload`
-2. ESP32D:
-   - `pio run -e esp32D -t upload`
-3. Serial monitor:
-   - `pio device monitor -b 115200`
+### ESP32-S3
 
-## How timer works
+- RX5808:
+  - `RSSI -> GPIO4`
+  - `DATA -> GPIO10`
+  - `SEL -> GPIO11`
+  - `CLK -> GPIO12`
+- SD (SPI):
+  - `CS -> GPIO39`
+  - `SCK -> GPIO36`
+  - `MISO -> GPIO37`
+  - `MOSI -> GPIO35`
+- ELRS/CRSF UART:
+  - `RX (from external TX) -> GPIO16`
+  - `TX (to external RX) -> GPIO17`
+  - baud: `420000`
 
-1. Boot:
-   - ESP32 starts ESP-NOW backpack link and ELRS/CRSF UART listener.
-   - RX5808 presence is checked (unless forced by config mode).
-2. Channel source:
-   - Channel can come from `VTX ADMIN` or from `AUX` mapping (`R1..R8` ranges).
-   - In `AUX` mode, if AUX value is outside configured ranges, OSD shows `AUXx WAIT`.
-   - In `AUX` mode, when timer channel changes, firmware also sends VTX ADMIN channel update back over ELRS/CRSF UART so goggles can follow the same channel.
-3. Lock/calibration:
-   - For selected channel, device watches RSSI.
-   - When RSSI is above lock threshold, timer locks that channel and seeds `enter/exit` thresholds.
-4. Lap detection:
-   - A gate pass is detected from RSSI peak logic:
-     above `enter`, then drop below `exit` for required consecutive samples.
-   - Cooldown blocks too-fast false laps (`min lap interval`).
-5. Stats/output:
-   - Laps update OSD and serial output.
-   - If SD is available, valid laps are buffered and written to `/LOGS/laps.csv`.
-6. Channel change behavior:
-   - When channel is changed (AUX or VTX ADMIN), session lap history and best-session stats are preserved.
-   - A fresh calibration is started for the new channel, and race-local timing state is re-armed.
+### ESP32D (`esp32dev`)
 
-## Soldering: ESP32-S3
+- RX5808:
+  - `RSSI -> GPIO34`
+  - `DATA -> GPIO23`
+  - `CLK -> GPIO18`
+  - `SEL -> GPIO5`
+- SD (SPI):
+  - `CS -> GPIO33`
+  - `SCK -> GPIO25`
+  - `MISO -> GPIO27`
+  - `MOSI -> GPIO26`
+- ELRS/CRSF UART:
+  - `RX <- GPIO16`
+  - `TX -> GPIO17`
+  - baud: `420000`
 
-### RX5808 receiver
-- RX5808 `RSSI` -> ESP32-S3 `GPIO4`
-- RX5808 `DATA` (CH1) -> ESP32-S3 `GPIO10`
-- RX5808 `SEL/LE` (CH2) -> ESP32-S3 `GPIO11`
-- RX5808 `CLK` (CH3) -> ESP32-S3 `GPIO12`
-- RX5808 `VCC` -> board `3.3V` (or module-required supply)
-- RX5808 `GND` -> board `GND`
+## Runtime Model
 
-### microSD (SPI)
-- SD `CS` -> ESP32-S3 `GPIO39`
-- SD `SCK/CLK` -> ESP32-S3 `GPIO36`
-- SD `MISO` -> ESP32-S3 `GPIO37`
-- SD `MOSI` -> ESP32-S3 `GPIO35`
-- SD `VCC` -> board `3V3` (recommended)
-- SD `GND` -> board `GND`
+### 1. Link and bind
 
-### External ELRS / CRSF UART
-- External device `TX` -> ESP32-S3 `GPIO16` (board UART RX)
-- External device `RX` -> ESP32-S3 `GPIO17` (board UART TX, optional but recommended)
-- External device `GND` -> board `GND`
-- External device `VCC` -> correct supply for that device
-- UART speed in code: `420000`
+- Uses ESP-NOW with auto-bind broadcast (`MSP_ELRS_BIND`).
+- Sends periodic probe (`MSP_ELRS_SET_OSD` display opcode).
+- If no successful unicast traffic is seen within `kLinkTimeoutMs`, link is considered lost and auto-bind restarts.
 
-## Soldering: ESP32D (`esp32dev`)
+### 2. Channel source
 
-### RX5808 receiver
-- RX5808 `RSSI` -> ESP32D `GPIO34` (input-only ADC)
-- RX5808 `DATA` -> ESP32D `GPIO23`
-- RX5808 `CLK` -> ESP32D `GPIO18`
-- RX5808 `SEL/LE` -> ESP32D `GPIO5`
-- RX5808 `VCC` -> board `3.3V` (or module-required supply)
-- RX5808 `GND` -> board `GND`
+Two supported sources:
 
-### microSD (SPI)
-- SD `CS` -> ESP32D `GPIO33`
-- SD `SCK/CLK` -> ESP32D `GPIO25`
-- SD `MISO` -> ESP32D `GPIO27`
-- SD `MOSI` -> ESP32D `GPIO26`
-- SD `VCC` -> board `3V3` (recommended)
-- SD `GND` -> board `GND`
+- `ADMIN` (CRSF VTX ADMIN)
+- `AUXx` (AUX range mapped to `R1..R8`)
 
-### External ELRS / CRSF UART
-- External device `TX` -> ESP32D `GPIO16` (board UART RX)
-- External device `RX` -> ESP32D `GPIO17` (board UART TX, optional but recommended)
-- External device `GND` -> board `GND`
-- External device `VCC` -> correct supply for that device
-- UART speed in code: `420000`
+Behavior:
 
-## Important checks before power-on
+- `ADMIN` mode does not do fallback R1..R8 sweep.
+- `AUX` mode uses only configured AUX ranges.
+- When channel changes, session stats are preserved, but calibration is restarted for the new channel.
 
-- UART is crossed: `device TX -> board RX`, `device RX -> board TX`.
-- Do not feed `5V` UART logic directly to ESP32 pins.
-- If RX5808 `RSSI` can exceed `3.3V`, use a divider before ESP32 ADC pin.
-- All modules must share common `GND`.
+### 3. Scan -> Lock -> Timing
 
-## SD card over USB (ESP32-S3)
+- Scan reads RSSI on selected channel.
+- Lock requires `RSSI > lock_threshold_rssi` and ARM-ready state.
+- After lock:
+  - `enter/exit` thresholds are derived
+  - `post_lock_ignore_ms` is enforced
+- First valid gate pass only arms timing reference and is not counted as a lap.
 
-- ESP32-S3 firmware now exposes SD card as USB MSC (mass storage) when SD is ready.
-- Connect ESP32-S3 to PC with USB data cable.
-- On boot, serial should print `USB MSC ready (read/write)`.
-- PC should show a removable drive with SD card content.
-- While USB MSC is active, timer runtime loop is paused to avoid SD/SPI contention and improve filesystem stability.
+### 4. Lap detection
 
-## SD config file (`/config.txt`)
+Gate pass logic:
 
-- Location: SD card root, file path `/config.txt`
-- On first boot with SD, firmware auto-creates this file with defaults.
-- Lines starting with `#` or `;` are treated as comments.
-- Unknown keys are ignored.
-- If some keys are missing, firmware auto-fills missing keys on next save.
+- track RSSI peak above `enter`
+- lap closes only after RSSI drops below `exit` for `exit_confirm_below_samples`
+- enforce minimum interval (`min_lap_interval_ms`)
+- hide/ignore very long laps (`> kCfgCooldownMaxMs`, default 60000 ms)
 
-Example:
+Outlier (fake lap) filter:
 
-```ini
-osd_main_row=17
-osd_main_col=15
-lap_popup_row=12
-lap_popup_col=20
-lock_threshold_rssi=90
-enter_offset_rssi=-10
-exit_offset_rssi=-50
-min_lap_interval_ms=10000
-post_lock_ignore_ms=6000
-exit_confirm_below_samples=4
-rx5808_mode_select=0
-sd_lap_logging_enabled=1
-channel_select_source=AUX7
-aux_range_r1=1000-1124
-aux_range_r2=1125-1249
-aux_range_r3=1250-1374
-aux_range_r4=1375-1499
-aux_range_r5=1500-1624
-aux_range_r6=1625-1749
-aux_range_r7=1750-1874
-aux_range_r8=1875-2100
-arm_source=AUX1
-arm_active_min_us=1700
-arm_active_max_us=2100
-new_race_after_disarm_ms=20000
-```
+- uses median from up to last 7 laps (`gAllLapHistoryMs`)
+- rejects overly fast anomalies using absolute and ratio floor checks
+- rejected laps are not added to race/session stats
 
-Key meanings:
+### 5. Race and session
 
-- `osd_main_row`, `osd_main_col`: main OSD text position
-- `lap_popup_row`, `lap_popup_col`: last-lap popup position
-- `lock_threshold_rssi`: RSSI threshold used for channel lock
-- `enter_offset_rssi`, `exit_offset_rssi`: enter/exit offsets from lock reference RSSI
-- `min_lap_interval_ms`: minimum lap time (anti-false-trigger cooldown)
-- `post_lock_ignore_ms`: delay after lock before first gate can arm timing
-- `exit_confirm_below_samples`: consecutive samples below exit threshold required to close lap
-- `rx5808_mode_select`: `0=AUTO`, `1=FORCE ON`, `2=FORCE OFF`
-- `sd_lap_logging_enabled`: `1/true/on` enable lap CSV logging, `0/false/off` disable
-- `channel_select_source`: `ADMIN` or `AUX1..AUX12`
-- `aux_range_r1..aux_range_r8`: AUX microsecond ranges mapped to `R1..R8`
-- `arm_source`: `NONE` or `AUX1..AUX12`
-- `arm_active_min_us`, `arm_active_max_us`: AUX range considered ARM ON
-- `new_race_after_disarm_ms`: disarm gap needed before next ARM starts a new race
+- `gLapCount` - laps in current race
+- `gSessionLapCount` - laps across current session
+- Long disarm (`new_race_after_disarm_ms`) starts a new race on next ARM
+- `S3` - best `R3` over the whole session
+- `R3` - best rolling 3-lap sum for current race
 
-## Not used in current firmware
+### 6. Lap popup delta metric
 
-No pin usage found for:
-- external LED
-- WS2812 LED
+Popup includes lap delta against a dynamic baseline:
+
+- take last 100 valid session laps
+- sort by lap time
+- take fastest 50
+- average those 50
+- display `lastLap - avgTop50(last100)`
+
+Popup format:
+
+- `Lxx ss.cc +dd.cc` or `Lxx ss.cc -dd.cc`
+
+Meaning:
+
+- `+` = slower than baseline
+- `-` = faster than baseline
+
+## OSD
+
+### Main OSD elements
+
+- `gOsdChannel`
+- `gOsdRssi`
+- `gOsdRssiThrUpper`
+- `gOsdRssiThrLower`
+- `gOsdBestLap` (SF)
+- `gOsdBestLap_race` (RF)
+- `gOsdBest3` (S3)
+- `gOsdBest3_race` (R3)
+- `raceLaps` (column `L1`, `L2`, ...)
+- `gOsdLapPopup`
+
+`WAIT VTX ADMIN` is internal and is not configured via `[col,row,flag]`.
+
+### OSD config format
+
+All OSD position keys support:
+
+- `[col,row,showDuringRace]`
+
+Examples:
+
+- `gOsdRssi=[12,16,1]`
+- `gOsdBest3_race=[38,2,0]`
+
+`showDuringRace`:
+
+- `1` = show while race is active
+- `0` = hide while race is active
+
+Notes:
+
+- Legacy `[col,row]` format is still supported.
+- If 3rd parameter is missing, firmware treats that as missing config and rewrites `/config.txt` with 3-parameter format.
+- Default for all `showDuringRace` flags is `1`.
+
+### `raceLaps` rendering
+
+- During race: renders current race laps (if enabled by `showDuringRace`)
+- Outside race: if current race list is empty, may show last completed race laps
+- If more rows than available OSD height, renders a tail window (latest visible rows)
+
+## SD Behavior
+
+- Config file: `/config.txt`
+- Lap log CSV: `/LOGS/laps.csv`
+- Laps are buffered in RAM, then flushed to SD
+- If SD becomes unavailable during runtime:
+  - firmware attempts recovery
+  - on failure, SD lap logging is disabled until reboot (prevents error spam)
+
+CSV columns:
+
+- `boot_ms,race_no,lap_no,lap_ms,channel,is_new_best`
+
+## USB MSC (ESP32-S3 only)
+
+- If SD is ready and USB MSC is enabled, SD is exposed as USB mass storage.
+- While host MSC is active, timer main loop is paused to avoid SD/SPI contention.
+
+## `/config.txt` Keys
+
+### OSD positions
+
+- `gOsdChannel=[col,row,showDuringRace]`
+- `gOsdRssi=[col,row,showDuringRace]`
+- `gOsdRssiThrUpper=[col,row,showDuringRace]`
+- `gOsdRssiThrLower=[col,row,showDuringRace]`
+- `gOsdBestLap=[col,row,showDuringRace]`
+- `gOsdBestLap_race=[col,row,showDuringRace]`
+- `gOsdBest3=[col,row,showDuringRace]`
+- `gOsdBest3_race=[col,row,showDuringRace]`
+- `raceLaps=[col,row,showDuringRace]`
+- `gOsdLapPopup=[col,row,showDuringRace]`
+
+Also supported:
+
+- `osd_main_row`, `osd_main_col`
+- `lap_popup_row`, `lap_popup_col` (legacy popup position keys)
+
+### Timing and RSSI
+
+- `lock_threshold_rssi`
+- `enter_offset_rssi`
+- `exit_offset_rssi`
+- `min_lap_interval_ms`
+- `post_lock_ignore_ms`
+- `exit_confirm_below_samples`
+
+### RX5808, channel source, ARM
+
+- `rx5808_mode_select` (`0=AUTO`, `1=FORCE ON`, `2=FORCE OFF`)
+- `channel_select_source` (`ADMIN` or `AUX1..AUX12`)
+- `aux_range_r1..aux_range_r8` (microsecond ranges mapped to `R1..R8`)
+- `arm_source` (`NONE` or `AUX1..AUX12`)
+- `arm_active_min_us`
+- `arm_active_max_us`
+- `new_race_after_disarm_ms`
+
+### SD
+
+- `sd_lap_logging_enabled` (`0/1`, `true/false`, `on/off`)
+
+## Exact Code Defaults
+
+Defaults in current `main.cpp`:
+
+- `osd_main_row=17`
+- `osd_main_col=13`
+- `lap_popup_row=12`
+- `lap_popup_col=18`
+- `gOsdChannel=[10,17,1]`
+- `gOsdRssi=[12,16,1]`
+- `gOsdRssiThrUpper=[18,16,1]`
+- `gOsdRssiThrLower=[25,16,1]`
+- `gOsdBestLap=[13,17,1]`
+- `gOsdBestLap_race=[22,17,1]`
+- `gOsdBest3=[31,17,1]`
+- `gOsdBest3_race=[38,2,1]`
+- `raceLaps=[38,3,1]`
+- `gOsdLapPopup=[18,12,1]`
+- `lock_threshold_rssi=100`
+- `enter_offset_rssi=-15`
+- `exit_offset_rssi=-45`
+- `min_lap_interval_ms=8000`
+- `post_lock_ignore_ms=6000`
+- `exit_confirm_below_samples=4`
+- `rx5808_mode_select=0`
+- `sd_lap_logging_enabled=1`
+- `channel_select_source=ADMIN`
+- `aux_range_r1=1540-1560`
+- `aux_range_r2=1565-1620`
+- `aux_range_r3=1625-1660`
+- `aux_range_r4=1665-1720`
+- `aux_range_r5=1725-1760`
+- `aux_range_r6=1765-1820`
+- `aux_range_r7=1825-1860`
+- `aux_range_r8=1860-1920`
+- `arm_source=AUX1`
+- `arm_active_min_us=1700`
+- `arm_active_max_us=2100`
+- `new_race_after_disarm_ms=10000`
+
+Auto-clamp ranges:
+
+- OSD `row`: `0..17`
+- OSD `col`: `0..50`
+- `lock_threshold_rssi`: `60..230`
+- `enter_offset_rssi`, `exit_offset_rssi`: `-60..60`
+- `min_lap_interval_ms`: `1000..60000`
+- `post_lock_ignore_ms`: `0..30000`
+- `exit_confirm_below_samples`: `1..20`
+- `new_race_after_disarm_ms`: `0..300000`
+
+## Useful Serial Diagnostics
+
+On boot, check:
+
+- `Settings: ...`
+- `OSD elements: ...`
+- `OSD showDuringRace: ...`
+- `Channel select source: ...`
+- `ARM source: ...`
+- `RX5808 ...`
+
+During laps, check:
+
+- `LAP ...`
+- `TOP50 AVG ... DELTA ...`
+- `Lap ignored as outlier ...` (if outlier filter triggers)
+
+## Not used in this firmware
+
+No active logic found for:
+
 - buzzer
+- WS2812 LED
 - battery voltage input
-- mode switch input
+- separate mode switch input

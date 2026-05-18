@@ -96,31 +96,37 @@ static constexpr uint8_t kOsdWaitVtxAdminRow = 13;
 static constexpr uint8_t kOsdWaitVtxAdminCol = 17;
 static uint8_t kCfgOsdChannelRow = 17;
 static uint8_t kCfgOsdChannelCol = 10;
+static bool kCfgOsdChannelShowDuringRace = true;
 static uint8_t kCfgOsdRssiRow = 16;
 static uint8_t kCfgOsdRssiCol = 12;
+static bool kCfgOsdRssiShowDuringRace = true;
 // Upper/lower RSSI thresholds (ENTER/EXIT) shown after RSSI by default.
 static uint8_t kCfgOsdRssiThrUpperRow = 16;
 static uint8_t kCfgOsdRssiThrUpperCol = 18;
+static bool kCfgOsdRssiThrUpperShowDuringRace = true;
 static uint8_t kCfgOsdRssiThrLowerRow = 16;
 static uint8_t kCfgOsdRssiThrLowerCol = 25;
+static bool kCfgOsdRssiThrLowerShowDuringRace = true;
 static uint8_t kCfgOsdBestLapRow = 17;
 static uint8_t kCfgOsdBestLapCol = 13;
+static bool kCfgOsdBestLapShowDuringRace = true;
 static uint8_t kCfgOsdBestLapRaceRow = 17;
 static uint8_t kCfgOsdBestLapRaceCol = 22;
+static bool kCfgOsdBestLapRaceShowDuringRace = true;
 static uint8_t kCfgOsdBest3Row = 17;
 static uint8_t kCfgOsdBest3Col = 31;
-static uint8_t kCfgOsdBest3RaceRow = 7;
+static bool kCfgOsdBest3ShowDuringRace = true;
+static uint8_t kCfgOsdBest3RaceRow = 2;
 static uint8_t kCfgOsdBest3RaceCol = 38;
-static uint8_t kCfgOsdLastLap1Row = 5;
-static uint8_t kCfgOsdLastLap1Col = 38;
-static uint8_t kCfgOsdLastLap2Row = 4;
-static uint8_t kCfgOsdLastLap2Col = 38;
-static uint8_t kCfgOsdLastLap3Row = 3;
-static uint8_t kCfgOsdLastLap3Col = 38;
+static bool kCfgOsdBest3RaceShowDuringRace = true;
+static uint8_t kCfgOsdRaceLapsRow = 3;
+static uint8_t kCfgOsdRaceLapsCol = 38;
+static bool kCfgOsdRaceLapsShowDuringRace = true;
+static bool kCfgLapPopupShowDuringRace = true;
 static uint8_t kCfgLockThresholdRssi = 100;                     // RSSI lock threshold during scan
 static int8_t kCfgEnterOffsetRssi = -15;                      // Enter offset from lock RSSI (e.g. -5)
 static int8_t kCfgExitOffsetRssi = -45;                     // Exit offset from lock RSSI (e.g. -10)
-static unsigned long kCfgMinLapIntervalMs = 10000;    // Minimum time between laps
+static unsigned long kCfgMinLapIntervalMs = 8000;    // Minimum time between laps
 static unsigned long kCfgPostLockIgnoreMs = 6000;   // Ignore gate arming shortly after LOCK (prevents false first lap)
 static uint8_t kCfgExitConfirmBelowSamples = 4;             // Consecutive samples below exit required
 // RX5808 mode: 0=AUTO detect, 1=FORCE ON, 2=FORCE OFF
@@ -132,7 +138,7 @@ static uint16_t kCfgAuxRangeMaxUs[8] = {1560, 1620, 1660, 1720, 1760, 1820, 1860
 static char kCfgArmSource[12] = "AUX1";                         // "NONE" or "AUX1"
 static uint16_t kCfgArmActiveMinUs = 1700;                      // ARM active range min (us)
 static uint16_t kCfgArmActiveMaxUs = 2100;                      // ARM active range max (us)
-static unsigned long kCfgNewRaceAfterDisarmMs = 20000;          // Start new race on ARM only if disarmed >= this long
+static unsigned long kCfgNewRaceAfterDisarmMs = 10000;          // Start new race on ARM only if disarmed >= this long
 
 // Limits (values are clamped automatically if out of range).
 static const uint8_t kCfgOsdMainRowMin = 0;
@@ -233,12 +239,23 @@ bool gBootOsdClearPending = true;
 bool gOsdForceFullRefresh = true;
 
 static const uint8_t kLapHistorySize = 32;
+static const uint16_t kSessionLapStatsWindow = 100;
+static const uint16_t kSessionLapTopCount = 50;
 uint32_t gLapHistoryMs[kLapHistorySize] = {};
 uint8_t gLapHistoryWrite = 0;
 uint8_t gLapHistoryCount = 0;
+uint32_t gCurrentRaceLapsMs[kLapHistorySize] = {};
+uint8_t gCurrentRaceLapCount = 0;
+uint32_t gLastCompletedRaceLapsMs[kLapHistorySize] = {};
+uint8_t gLastCompletedRaceLapCount = 0;
 uint32_t gAllLapHistoryMs[kLapHistorySize] = {};
 uint8_t gAllLapHistoryWrite = 0;
 uint8_t gAllLapHistoryCount = 0;
+uint32_t gSessionLapStatsMs[kSessionLapStatsWindow] = {};
+uint32_t gSessionLapSortScratchMs[kSessionLapStatsWindow] = {};
+uint16_t gSessionLapStatsWrite = 0;
+uint16_t gSessionLapStatsCount = 0;
+uint32_t gBestHalfSessionAvgMs = 0;
 uint32_t gBest3ConsecutiveAllTimeMs = 0;
 uint32_t gBest3ConsecutiveRaceMs = 0;
 uint32_t gRecentRaceLapWindow[3] = {0, 0, 0};
@@ -473,12 +490,8 @@ void applyUserSettings() {
   kCfgOsdBest3Col = static_cast<uint8_t>(constrain(kCfgOsdBest3Col, kCfgOsdMainColMin, kCfgOsdMainColMax));
   kCfgOsdBest3RaceRow = static_cast<uint8_t>(constrain(kCfgOsdBest3RaceRow, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
   kCfgOsdBest3RaceCol = static_cast<uint8_t>(constrain(kCfgOsdBest3RaceCol, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgOsdLastLap1Row = static_cast<uint8_t>(constrain(kCfgOsdLastLap1Row, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdLastLap1Col = static_cast<uint8_t>(constrain(kCfgOsdLastLap1Col, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgOsdLastLap2Row = static_cast<uint8_t>(constrain(kCfgOsdLastLap2Row, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdLastLap2Col = static_cast<uint8_t>(constrain(kCfgOsdLastLap2Col, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgOsdLastLap3Row = static_cast<uint8_t>(constrain(kCfgOsdLastLap3Row, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdLastLap3Col = static_cast<uint8_t>(constrain(kCfgOsdLastLap3Col, kCfgOsdMainColMin, kCfgOsdMainColMax));
+  kCfgOsdRaceLapsRow = static_cast<uint8_t>(constrain(kCfgOsdRaceLapsRow, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
+  kCfgOsdRaceLapsCol = static_cast<uint8_t>(constrain(kCfgOsdRaceLapsCol, kCfgOsdMainColMin, kCfgOsdMainColMax));
   gStrongSignalRssi = static_cast<uint8_t>(constrain(kCfgLockThresholdRssi, kCfgThresholdMin, kCfgThresholdMax));
   gEnterRssiOffset = static_cast<int8_t>(constrain(static_cast<int>(kCfgEnterOffsetRssi), static_cast<int>(kCfgOffsetMin),
                                                     static_cast<int>(kCfgOffsetMax)));
@@ -1062,14 +1075,13 @@ void clearOsdElementsOnBoot() {
   if (!(kCfgOsdBest3RaceCol == 0 && kCfgOsdBest3RaceRow == 0)) {
     sendOsdText(kCfgOsdBest3RaceRow, kCfgOsdBest3RaceCol, kBlank);
   }
-  if (!(kCfgOsdLastLap1Col == 0 && kCfgOsdLastLap1Row == 0)) {
-    sendOsdText(kCfgOsdLastLap1Row, kCfgOsdLastLap1Col, kBlank);
-  }
-  if (!(kCfgOsdLastLap2Col == 0 && kCfgOsdLastLap2Row == 0)) {
-    sendOsdText(kCfgOsdLastLap2Row, kCfgOsdLastLap2Col, kBlank);
-  }
-  if (!(kCfgOsdLastLap3Col == 0 && kCfgOsdLastLap3Row == 0)) {
-    sendOsdText(kCfgOsdLastLap3Row, kCfgOsdLastLap3Col, kBlank);
+  if (!(kCfgOsdRaceLapsCol == 0 && kCfgOsdRaceLapsRow == 0)) {
+    for (uint8_t row = kCfgOsdRaceLapsRow; row <= kCfgOsdMainRowMax; ++row) {
+      sendOsdText(row, kCfgOsdRaceLapsCol, kBlank);
+      if (row == kCfgOsdMainRowMax) {
+        break;
+      }
+    }
   }
   if (!(kCfgLapPopupCol == 0 && kCfgLapPopupRow == 0)) {
     sendOsdText(kCfgLapPopupRow, kCfgLapPopupCol, kBlank);
@@ -1094,18 +1106,26 @@ bool writeConfigToSd() {
   cfg.println("osd_main_col=" + String(kCfgOsdMainCol));
   cfg.println("lap_popup_row=" + String(kCfgLapPopupRow));
   cfg.println("lap_popup_col=" + String(kCfgLapPopupCol));
-  cfg.println("gOsdChannel=[" + String(kCfgOsdChannelCol) + "," + String(kCfgOsdChannelRow) + "]");
-  cfg.println("gOsdRssi=[" + String(kCfgOsdRssiCol) + "," + String(kCfgOsdRssiRow) + "]");
-  cfg.println("gOsdRssiThrUpper=[" + String(kCfgOsdRssiThrUpperCol) + "," + String(kCfgOsdRssiThrUpperRow) + "]");
-  cfg.println("gOsdRssiThrLower=[" + String(kCfgOsdRssiThrLowerCol) + "," + String(kCfgOsdRssiThrLowerRow) + "]");
-  cfg.println("gOsdBestLap=[" + String(kCfgOsdBestLapCol) + "," + String(kCfgOsdBestLapRow) + "]");
-  cfg.println("gOsdBestLap_race=[" + String(kCfgOsdBestLapRaceCol) + "," + String(kCfgOsdBestLapRaceRow) + "]");
-  cfg.println("gOsdBest3=[" + String(kCfgOsdBest3Col) + "," + String(kCfgOsdBest3Row) + "]");
-  cfg.println("gOsdBest3_race=[" + String(kCfgOsdBest3RaceCol) + "," + String(kCfgOsdBest3RaceRow) + "]");
-  cfg.println("gOsdLastLap_1=[" + String(kCfgOsdLastLap1Col) + "," + String(kCfgOsdLastLap1Row) + "]");
-  cfg.println("gOsdLastLap_2=[" + String(kCfgOsdLastLap2Col) + "," + String(kCfgOsdLastLap2Row) + "]");
-  cfg.println("gOsdLastLap_3=[" + String(kCfgOsdLastLap3Col) + "," + String(kCfgOsdLastLap3Row) + "]");
-  cfg.println("gOsdLapPopup=[" + String(kCfgLapPopupCol) + "," + String(kCfgLapPopupRow) + "]");
+  cfg.println("gOsdChannel=[" + String(kCfgOsdChannelCol) + "," + String(kCfgOsdChannelRow) + "," +
+              String(kCfgOsdChannelShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdRssi=[" + String(kCfgOsdRssiCol) + "," + String(kCfgOsdRssiRow) + "," +
+              String(kCfgOsdRssiShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdRssiThrUpper=[" + String(kCfgOsdRssiThrUpperCol) + "," + String(kCfgOsdRssiThrUpperRow) + "," +
+              String(kCfgOsdRssiThrUpperShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdRssiThrLower=[" + String(kCfgOsdRssiThrLowerCol) + "," + String(kCfgOsdRssiThrLowerRow) + "," +
+              String(kCfgOsdRssiThrLowerShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdBestLap=[" + String(kCfgOsdBestLapCol) + "," + String(kCfgOsdBestLapRow) + "," +
+              String(kCfgOsdBestLapShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdBestLap_race=[" + String(kCfgOsdBestLapRaceCol) + "," + String(kCfgOsdBestLapRaceRow) + "," +
+              String(kCfgOsdBestLapRaceShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdBest3=[" + String(kCfgOsdBest3Col) + "," + String(kCfgOsdBest3Row) + "," +
+              String(kCfgOsdBest3ShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdBest3_race=[" + String(kCfgOsdBest3RaceCol) + "," + String(kCfgOsdBest3RaceRow) + "," +
+              String(kCfgOsdBest3RaceShowDuringRace ? 1 : 0) + "]");
+  cfg.println("raceLaps=[" + String(kCfgOsdRaceLapsCol) + "," + String(kCfgOsdRaceLapsRow) + "," +
+              String(kCfgOsdRaceLapsShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdLapPopup=[" + String(kCfgLapPopupCol) + "," + String(kCfgLapPopupRow) + "," +
+              String(kCfgLapPopupShowDuringRace ? 1 : 0) + "]");
   cfg.println("lock_threshold_rssi=" + String(kCfgLockThresholdRssi));
   cfg.println("enter_offset_rssi=" + String(kCfgEnterOffsetRssi));
   cfg.println("exit_offset_rssi=" + String(kCfgExitOffsetRssi));
@@ -1151,9 +1171,7 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
   bool foundOsdBestLapRace = false;
   bool foundOsdBest3 = false;
   bool foundOsdBest3Race = false;
-  bool foundOsdLastLap1 = false;
-  bool foundOsdLastLap2 = false;
-  bool foundOsdLastLap3 = false;
+  bool foundOsdRaceLaps = false;
   bool foundOsdLapPopup = false;
   bool foundLockThresholdRssi = false;
   bool foundEnterOffsetRssi = false;
@@ -1169,6 +1187,7 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
   bool foundArmActiveMaxUs = false;
   bool foundNewRaceAfterDisarmMs = false;
   bool foundAuxRange[8] = {};
+  bool missingOsdShowDuringRaceFlag = false;
 
   char lineBuf[160];
   while (cfg.available()) {
@@ -1191,6 +1210,8 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     bool bv = false;
     uint8_t pointCol = 0;
     uint8_t pointRow = 0;
+    bool pointShowDuringRace = true;
+    bool pointHasShowFlag = false;
     if (strcmp(key, "osd_main_row") == 0) {
       foundOsdMainRow = true;
       if (parseUnsignedLongStrict(val, ul)) {
@@ -1213,75 +1234,113 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
       }
     } else if (strcmp(key, "gOsdChannel") == 0) {
       foundOsdChannel = true;
-      if (parseOsdPointStrict(val, pointCol, pointRow)) {
+      if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
         kCfgOsdChannelCol = pointCol;
         kCfgOsdChannelRow = pointRow;
+        if (pointHasShowFlag) {
+          kCfgOsdChannelShowDuringRace = pointShowDuringRace;
+        } else {
+          missingOsdShowDuringRaceFlag = true;
+        }
       }
     } else if (strcmp(key, "gOsdRssi") == 0) {
       foundOsdRssi = true;
-      if (parseOsdPointStrict(val, pointCol, pointRow)) {
+      if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
         kCfgOsdRssiCol = pointCol;
         kCfgOsdRssiRow = pointRow;
+        if (pointHasShowFlag) {
+          kCfgOsdRssiShowDuringRace = pointShowDuringRace;
+        } else {
+          missingOsdShowDuringRaceFlag = true;
+        }
       }
     } else if (strcmp(key, "gOsdRssiThrUpper") == 0) {
       foundOsdRssiThrUpper = true;
-      if (parseOsdPointStrict(val, pointCol, pointRow)) {
+      if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
         kCfgOsdRssiThrUpperCol = pointCol;
         kCfgOsdRssiThrUpperRow = pointRow;
+        if (pointHasShowFlag) {
+          kCfgOsdRssiThrUpperShowDuringRace = pointShowDuringRace;
+        } else {
+          missingOsdShowDuringRaceFlag = true;
+        }
       }
     } else if (strcmp(key, "gOsdRssiThrLower") == 0) {
       foundOsdRssiThrLower = true;
-      if (parseOsdPointStrict(val, pointCol, pointRow)) {
+      if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
         kCfgOsdRssiThrLowerCol = pointCol;
         kCfgOsdRssiThrLowerRow = pointRow;
+        if (pointHasShowFlag) {
+          kCfgOsdRssiThrLowerShowDuringRace = pointShowDuringRace;
+        } else {
+          missingOsdShowDuringRaceFlag = true;
+        }
       }
     } else if (strcmp(key, "gOsdBestLap") == 0 || strcmp(key, "gOsdStat2") == 0) {
       foundOsdBestLap = true;
-      if (parseOsdPointStrict(val, pointCol, pointRow)) {
+      if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
         kCfgOsdBestLapCol = pointCol;
         kCfgOsdBestLapRow = pointRow;
+        if (pointHasShowFlag) {
+          kCfgOsdBestLapShowDuringRace = pointShowDuringRace;
+        } else {
+          missingOsdShowDuringRaceFlag = true;
+        }
       }
     } else if (strcmp(key, "gOsdBestLap_race") == 0) {
       foundOsdBestLapRace = true;
-      if (parseOsdPointStrict(val, pointCol, pointRow)) {
+      if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
         kCfgOsdBestLapRaceCol = pointCol;
         kCfgOsdBestLapRaceRow = pointRow;
+        if (pointHasShowFlag) {
+          kCfgOsdBestLapRaceShowDuringRace = pointShowDuringRace;
+        } else {
+          missingOsdShowDuringRaceFlag = true;
+        }
       }
     } else if (strcmp(key, "gOsdBest3") == 0) {
       foundOsdBest3 = true;
-      if (parseOsdPointStrict(val, pointCol, pointRow)) {
+      if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
         kCfgOsdBest3Col = pointCol;
         kCfgOsdBest3Row = pointRow;
+        if (pointHasShowFlag) {
+          kCfgOsdBest3ShowDuringRace = pointShowDuringRace;
+        } else {
+          missingOsdShowDuringRaceFlag = true;
+        }
       }
     } else if (strcmp(key, "gOsdBest3_race") == 0) {
       foundOsdBest3Race = true;
-      if (parseOsdPointStrict(val, pointCol, pointRow)) {
+      if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
         kCfgOsdBest3RaceCol = pointCol;
         kCfgOsdBest3RaceRow = pointRow;
+        if (pointHasShowFlag) {
+          kCfgOsdBest3RaceShowDuringRace = pointShowDuringRace;
+        } else {
+          missingOsdShowDuringRaceFlag = true;
+        }
       }
-    } else if (strcmp(key, "gOsdLastLap_1") == 0 || strcmp(key, "gOsdLastLap") == 0 || strcmp(key, "gOsdStat3") == 0) {
-      foundOsdLastLap1 = true;
-      if (parseOsdPointStrict(val, pointCol, pointRow)) {
-        kCfgOsdLastLap1Col = pointCol;
-        kCfgOsdLastLap1Row = pointRow;
-      }
-    } else if (strcmp(key, "gOsdLastLap_2") == 0) {
-      foundOsdLastLap2 = true;
-      if (parseOsdPointStrict(val, pointCol, pointRow)) {
-        kCfgOsdLastLap2Col = pointCol;
-        kCfgOsdLastLap2Row = pointRow;
-      }
-    } else if (strcmp(key, "gOsdLastLap_3") == 0) {
-      foundOsdLastLap3 = true;
-      if (parseOsdPointStrict(val, pointCol, pointRow)) {
-        kCfgOsdLastLap3Col = pointCol;
-        kCfgOsdLastLap3Row = pointRow;
+    } else if (strcmp(key, "raceLaps") == 0) {
+      foundOsdRaceLaps = true;
+      if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
+        kCfgOsdRaceLapsCol = pointCol;
+        kCfgOsdRaceLapsRow = pointRow;
+        if (pointHasShowFlag) {
+          kCfgOsdRaceLapsShowDuringRace = pointShowDuringRace;
+        } else {
+          missingOsdShowDuringRaceFlag = true;
+        }
       }
     } else if (strcmp(key, "gOsdLapPopup") == 0) {
       foundOsdLapPopup = true;
-      if (parseOsdPointStrict(val, pointCol, pointRow)) {
+      if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
         kCfgLapPopupCol = pointCol;
         kCfgLapPopupRow = pointRow;
+        if (pointHasShowFlag) {
+          kCfgLapPopupShowDuringRace = pointShowDuringRace;
+        } else {
+          missingOsdShowDuringRaceFlag = true;
+        }
       }
     } else if (strcmp(key, "lock_threshold_rssi") == 0) {
       foundLockThresholdRssi = true;
@@ -1391,20 +1450,12 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     kCfgOsdBest3Row = kCfgOsdMainRow;
     kCfgOsdBest3Col = 36;
   }
-  if (!foundOsdLastLap1) {
-    kCfgOsdLastLap1Row = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdMainRow) - 12, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-    kCfgOsdLastLap1Col = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdMainCol) + 21, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  }
-  if (!foundOsdLastLap2) {
-    kCfgOsdLastLap2Row = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdLastLap1Row) - 1, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-    kCfgOsdLastLap2Col = kCfgOsdLastLap1Col;
-  }
-  if (!foundOsdLastLap3) {
-    kCfgOsdLastLap3Row = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdLastLap1Row) - 2, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-    kCfgOsdLastLap3Col = kCfgOsdLastLap1Col;
+  if (!foundOsdRaceLaps) {
+    kCfgOsdRaceLapsRow = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdMainRow) - 12, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
+    kCfgOsdRaceLapsCol = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdMainCol) + 21, kCfgOsdMainColMin, kCfgOsdMainColMax));
   }
   if (!foundOsdBest3Race) {
-    kCfgOsdBest3RaceRow = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdLastLap1Row) + 1, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
+    kCfgOsdBest3RaceRow = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdRaceLapsRow) - 1, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
     kCfgOsdBest3RaceCol = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdMainCol) + 21, kCfgOsdMainColMin, kCfgOsdMainColMax));
   }
   if (!foundOsdLapPopup) {
@@ -1423,12 +1474,13 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
                    !foundOsdBestLap || !foundOsdBestLapRace ||
                    !foundOsdBest3 ||
                    !foundOsdBest3Race ||
-                   !foundOsdLastLap1 || !foundOsdLastLap2 || !foundOsdLastLap3 ||
+                   !foundOsdRaceLaps ||
                    !foundOsdLapPopup ||
                    !foundLockThresholdRssi || !foundEnterOffsetRssi || !foundExitOffsetRssi || !foundMinLapIntervalMs ||
                    !foundPostLockIgnoreMs || !foundExitConfirmBelowSamples ||
                    !foundRx5808ModeSelect || !foundSdLapLoggingEnabled || !foundChannelSelectSource ||
                    !foundArmSource || !foundArmActiveMinUs || !foundArmActiveMaxUs || !foundNewRaceAfterDisarmMs ||
+                   missingOsdShowDuringRaceFlag ||
                    auxMissing;
   return true;
 }
@@ -1747,6 +1799,28 @@ void sendOsdMessageIfChanged(const char *text) {
   sLastStatusMsgMs = now;
 }
 
+void appendCurrentRaceLap(uint32_t lapMs) {
+  if (gCurrentRaceLapCount < kLapHistorySize) {
+    gCurrentRaceLapsMs[gCurrentRaceLapCount++] = lapMs;
+    return;
+  }
+  // Keep a rolling tail if race has more laps than buffer capacity.
+  memmove(&gCurrentRaceLapsMs[0], &gCurrentRaceLapsMs[1], sizeof(uint32_t) * (kLapHistorySize - 1U));
+  gCurrentRaceLapsMs[kLapHistorySize - 1U] = lapMs;
+}
+
+void archiveCurrentRaceLapsAsLastCompleted() {
+  gLastCompletedRaceLapCount = gCurrentRaceLapCount;
+  for (uint8_t i = 0; i < gCurrentRaceLapCount; ++i) {
+    gLastCompletedRaceLapsMs[i] = gCurrentRaceLapsMs[i];
+  }
+}
+
+void clearCurrentRaceLaps() {
+  memset(gCurrentRaceLapsMs, 0, sizeof(gCurrentRaceLapsMs));
+  gCurrentRaceLapCount = 0;
+}
+
 void pushLapHistory(uint32_t lapMs) {
   gLapHistoryMs[gLapHistoryWrite] = lapMs;
   gLapHistoryWrite = static_cast<uint8_t>((gLapHistoryWrite + 1) % kLapHistorySize);
@@ -1771,6 +1845,47 @@ void pushLapHistory(uint32_t lapMs) {
       gBest3ConsecutiveAllTimeMs = sum3Race;
     }
   }
+}
+
+void updateBestHalfSessionAverage() {
+  if (gSessionLapStatsCount == 0) {
+    gBestHalfSessionAvgMs = 0;
+    return;
+  }
+
+  for (uint16_t i = 0; i < gSessionLapStatsCount; ++i) {
+    const uint16_t idx = static_cast<uint16_t>((gSessionLapStatsWrite + kSessionLapStatsWindow - gSessionLapStatsCount + i) %
+                                               kSessionLapStatsWindow);
+    gSessionLapSortScratchMs[i] = gSessionLapStatsMs[idx];
+  }
+
+  // In-place insertion sort (lap count grows gradually and update is per-lap).
+  for (uint16_t i = 1; i < gSessionLapStatsCount; ++i) {
+    const uint32_t key = gSessionLapSortScratchMs[i];
+    int j = static_cast<int>(i) - 1;
+    while (j >= 0 && gSessionLapSortScratchMs[j] > key) {
+      gSessionLapSortScratchMs[j + 1] = gSessionLapSortScratchMs[j];
+      --j;
+    }
+    gSessionLapSortScratchMs[j + 1] = key;
+  }
+
+  // Average fastest 50 laps from the rolling last-100 laps window.
+  const uint16_t bestCount = (gSessionLapStatsCount < kSessionLapTopCount) ? gSessionLapStatsCount : kSessionLapTopCount;
+  uint64_t sum = 0;
+  for (uint16_t i = 0; i < bestCount; ++i) {
+    sum += static_cast<uint64_t>(gSessionLapSortScratchMs[i]);
+  }
+  gBestHalfSessionAvgMs = static_cast<uint32_t>(sum / static_cast<uint64_t>(bestCount));
+}
+
+void appendSessionLapForBestHalfAverage(uint32_t lapMs) {
+  gSessionLapStatsMs[gSessionLapStatsWrite] = lapMs;
+  gSessionLapStatsWrite = static_cast<uint16_t>((gSessionLapStatsWrite + 1U) % kSessionLapStatsWindow);
+  if (gSessionLapStatsCount < kSessionLapStatsWindow) {
+    gSessionLapStatsCount++;
+  }
+  updateBestHalfSessionAverage();
 }
 
 uint32_t computeMedianMs(uint32_t *vals, uint8_t count) {
@@ -1835,24 +1950,6 @@ bool isLikelyFakeLap(uint32_t lapMs) {
   return isFake;
 }
 
-void getLastNLaps(uint8_t n, uint32_t *outMs, uint8_t &outCount) {
-  outCount = 0;
-  if (n == 0 || gLapHistoryCount == 0) {
-    return;
-  }
-  for (uint8_t i = 0; i < gLapHistoryCount && outCount < n; ++i) {
-    const uint16_t idx16 =
-        (static_cast<uint16_t>(gLapHistoryWrite) + static_cast<uint16_t>(kLapHistorySize) - 1U - i) %
-        static_cast<uint16_t>(kLapHistorySize);
-    const uint8_t idx = static_cast<uint8_t>(idx16);
-    const uint32_t lapMs = gLapHistoryMs[idx];
-    if (lapMs == 0) {
-      continue;
-    }
-    outMs[outCount++] = lapMs;
-  }
-}
-
 bool timerActive(unsigned long now, unsigned long untilMs) {
   // Wrap-safe check for millis()-based deadlines.
   return untilMs != 0 && static_cast<long>(untilMs - now) > 0;
@@ -1860,6 +1957,16 @@ bool timerActive(unsigned long now, unsigned long untilMs) {
 
 bool isOsdElementEnabled(uint8_t col, uint8_t row) {
   return !(col == 0 && row == 0);
+}
+
+bool isOsdElementVisibleNow(uint8_t col, uint8_t row, bool showDuringRace, bool raceInProgress) {
+  if (!isOsdElementEnabled(col, row)) {
+    return false;
+  }
+  if (raceInProgress && !showDuringRace) {
+    return false;
+  }
+  return true;
 }
 
 size_t buildOsdVisibleText(uint8_t col, const char *text, char *out, size_t outSize) {
@@ -1892,14 +1999,77 @@ size_t buildOsdVisibleText(uint8_t col, const char *text, char *out, size_t outS
   return n;
 }
 
-void sendOsdComposedStatus(const char *channelText, const char *rssiText,
+bool sendRaceLapsColumnOsd(const uint32_t *lapsMs, uint8_t lapCount, bool allowRender) {
+  static uint8_t sPrevRenderedCount = 0;
+  static uint8_t sPrevRow = 0;
+  static uint8_t sPrevCol = 0;
+
+  const bool enabled = allowRender && isOsdElementEnabled(kCfgOsdRaceLapsCol, kCfgOsdRaceLapsRow);
+  const uint8_t row = kCfgOsdRaceLapsRow;
+  const uint8_t col = kCfgOsdRaceLapsCol;
+  bool changed = false;
+
+  auto clearPrevRows = [&changed]() {
+    for (uint8_t i = 0; i < sPrevRenderedCount; ++i) {
+      sendOsdText(static_cast<uint8_t>(sPrevRow + i), sPrevCol, "                ");
+      changed = true;
+    }
+    sPrevRenderedCount = 0;
+    sPrevRow = 0;
+    sPrevCol = 0;
+  };
+
+  if (!enabled) {
+    if (sPrevRenderedCount > 0) {
+      clearPrevRows();
+    }
+    return changed;
+  }
+
+  const uint8_t visibleRows = static_cast<uint8_t>(kCfgOsdMainRowMax - row + 1U);
+  const uint8_t renderCount = static_cast<uint8_t>(min(static_cast<unsigned>(lapCount),
+                                                        static_cast<unsigned>(visibleRows)));
+  const uint8_t startIdx = (lapCount > renderCount) ? static_cast<uint8_t>(lapCount - renderCount) : 0;
+  const bool layoutChanged = (row != sPrevRow) || (col != sPrevCol);
+
+  if (layoutChanged && sPrevRenderedCount > 0) {
+    clearPrevRows();
+  }
+
+  for (uint8_t i = 0; i < renderCount; ++i) {
+    const uint8_t lapIdx = static_cast<uint8_t>(startIdx + i);
+    const uint32_t lapMs = lapsMs[lapIdx];
+    const uint32_t sec = lapMs / 1000U;
+    const uint32_t cs = (lapMs % 1000U) / 10U;
+    char line[24] = {};
+    snprintf(line, sizeof(line), "L%u:%02lu.%02lu", static_cast<unsigned>(lapIdx + 1U),
+             static_cast<unsigned long>(sec), static_cast<unsigned long>(cs));
+    // Always redraw visible rows as one OSD frame to avoid row loss between display commits.
+    sendOsdText(static_cast<uint8_t>(row + i), col, line);
+    changed = true;
+  }
+
+  if (!layoutChanged && sPrevRenderedCount > renderCount) {
+    for (uint8_t i = renderCount; i < sPrevRenderedCount; ++i) {
+      sendOsdText(static_cast<uint8_t>(row + i), col, "                ");
+      changed = true;
+    }
+  }
+
+  sPrevRenderedCount = renderCount;
+  sPrevRow = row;
+  sPrevCol = col;
+  return changed;
+}
+
+bool sendOsdComposedStatus(const char *channelText, const char *rssiText,
                            const char *rssiThrUpperText, const char *rssiThrLowerText,
                            const char *bestLapText,
                            const char *bestLapRaceText,
                            const char *best3Text, const char *best3RaceText,
-                           const char *lastLap1Text, const char *lastLap2Text,
-                           const char *lastLap3Text, const char *lapPopupText,
-                           const char *waitVtxAdminText) {
+                           const char *lapPopupText,
+                           const char *waitVtxAdminText,
+                           bool raceInProgress) {
   static bool sLapPopupWasVisible = false;
   static bool sWaitVtxWasVisible = false;
   static char sLastChannel[24] = {};
@@ -1910,9 +2080,6 @@ void sendOsdComposedStatus(const char *channelText, const char *rssiText,
   static char sLastBestLapRace[24] = {};
   static char sLastBest3[24] = {};
   static char sLastBest3Race[24] = {};
-  static char sLastLap1[24] = {};
-  static char sLastLap2[24] = {};
-  static char sLastLap3[24] = {};
   static char sLastLapPopup[32] = {};
   static char sLastWaitVtx[24] = {};
   static unsigned long sLastDisplayMs = 0;
@@ -1926,13 +2093,12 @@ void sendOsdComposedStatus(const char *channelText, const char *rssiText,
     memset(sLastBestLapRace, 0, sizeof(sLastBestLapRace));
     memset(sLastBest3, 0, sizeof(sLastBest3));
     memset(sLastBest3Race, 0, sizeof(sLastBest3Race));
-    memset(sLastLap1, 0, sizeof(sLastLap1));
-    memset(sLastLap2, 0, sizeof(sLastLap2));
-    memset(sLastLap3, 0, sizeof(sLastLap3));
     memset(sLastLapPopup, 0, sizeof(sLastLapPopup));
     memset(sLastWaitVtx, 0, sizeof(sLastWaitVtx));
-    sLapPopupWasVisible = false;
-    sWaitVtxWasVisible = false;
+    // We do not know what was left on goggles before this forced refresh.
+    // Mark overlays as visible so next composed pass clears stale popup/WAIT rows if needed.
+    sLapPopupWasVisible = true;
+    sWaitVtxWasVisible = true;
     gOsdForceFullRefresh = false;
   }
 
@@ -1980,27 +2146,21 @@ void sendOsdComposedStatus(const char *channelText, const char *rssiText,
 
   OsdField fields[] = {
       {kCfgOsdChannelRow, kCfgOsdChannelCol, channelText, sLastChannel, sizeof(sLastChannel),
-       isOsdElementEnabled(kCfgOsdChannelCol, kCfgOsdChannelRow)},
+       isOsdElementVisibleNow(kCfgOsdChannelCol, kCfgOsdChannelRow, kCfgOsdChannelShowDuringRace, raceInProgress)},
       {kCfgOsdRssiRow, kCfgOsdRssiCol, rssiText, sLastRssi, sizeof(sLastRssi),
-       isOsdElementEnabled(kCfgOsdRssiCol, kCfgOsdRssiRow)},
+       isOsdElementVisibleNow(kCfgOsdRssiCol, kCfgOsdRssiRow, kCfgOsdRssiShowDuringRace, raceInProgress)},
       {kCfgOsdRssiThrUpperRow, kCfgOsdRssiThrUpperCol, rssiThrUpperText, sLastThrUpper, sizeof(sLastThrUpper),
-       isOsdElementEnabled(kCfgOsdRssiThrUpperCol, kCfgOsdRssiThrUpperRow)},
+       isOsdElementVisibleNow(kCfgOsdRssiThrUpperCol, kCfgOsdRssiThrUpperRow, kCfgOsdRssiThrUpperShowDuringRace, raceInProgress)},
       {kCfgOsdRssiThrLowerRow, kCfgOsdRssiThrLowerCol, rssiThrLowerText, sLastThrLower, sizeof(sLastThrLower),
-       isOsdElementEnabled(kCfgOsdRssiThrLowerCol, kCfgOsdRssiThrLowerRow)},
+       isOsdElementVisibleNow(kCfgOsdRssiThrLowerCol, kCfgOsdRssiThrLowerRow, kCfgOsdRssiThrLowerShowDuringRace, raceInProgress)},
       {kCfgOsdBestLapRow, kCfgOsdBestLapCol, bestLapText, sLastBestLap, sizeof(sLastBestLap),
-       isOsdElementEnabled(kCfgOsdBestLapCol, kCfgOsdBestLapRow)},
+       isOsdElementVisibleNow(kCfgOsdBestLapCol, kCfgOsdBestLapRow, kCfgOsdBestLapShowDuringRace, raceInProgress)},
       {kCfgOsdBestLapRaceRow, kCfgOsdBestLapRaceCol, bestLapRaceText, sLastBestLapRace, sizeof(sLastBestLapRace),
-       isOsdElementEnabled(kCfgOsdBestLapRaceCol, kCfgOsdBestLapRaceRow)},
+       isOsdElementVisibleNow(kCfgOsdBestLapRaceCol, kCfgOsdBestLapRaceRow, kCfgOsdBestLapRaceShowDuringRace, raceInProgress)},
       {kCfgOsdBest3Row, kCfgOsdBest3Col, best3Text, sLastBest3, sizeof(sLastBest3),
-       isOsdElementEnabled(kCfgOsdBest3Col, kCfgOsdBest3Row)},
+       isOsdElementVisibleNow(kCfgOsdBest3Col, kCfgOsdBest3Row, kCfgOsdBest3ShowDuringRace, raceInProgress)},
       {kCfgOsdBest3RaceRow, kCfgOsdBest3RaceCol, best3RaceText, sLastBest3Race, sizeof(sLastBest3Race),
-       isOsdElementEnabled(kCfgOsdBest3RaceCol, kCfgOsdBest3RaceRow)},
-      {kCfgOsdLastLap1Row, kCfgOsdLastLap1Col, lastLap1Text, sLastLap1, sizeof(sLastLap1),
-       isOsdElementEnabled(kCfgOsdLastLap1Col, kCfgOsdLastLap1Row)},
-      {kCfgOsdLastLap2Row, kCfgOsdLastLap2Col, lastLap2Text, sLastLap2, sizeof(sLastLap2),
-       isOsdElementEnabled(kCfgOsdLastLap2Col, kCfgOsdLastLap2Row)},
-      {kCfgOsdLastLap3Row, kCfgOsdLastLap3Col, lastLap3Text, sLastLap3, sizeof(sLastLap3),
-       isOsdElementEnabled(kCfgOsdLastLap3Col, kCfgOsdLastLap3Row)},
+       isOsdElementVisibleNow(kCfgOsdBest3RaceCol, kCfgOsdBest3RaceRow, kCfgOsdBest3RaceShowDuringRace, raceInProgress)},
   };
 
   bool sentAnyText = false;
@@ -2008,6 +2168,11 @@ void sendOsdComposedStatus(const char *channelText, const char *rssiText,
   for (uint8_t idx = 0; idx < fieldCount; ++idx) {
     const OsdField &f = fields[idx];
     if (!f.enabled) {
+      if (f.cache[0] != '\0') {
+        sendOsdText(f.row, f.col, "                ");
+        f.cache[0] = '\0';
+        sentAnyText = true;
+      }
       continue;
     }
     if (sendField(f.row, f.col, f.text, f.cache, f.cacheSize)) {
@@ -2016,14 +2181,22 @@ void sendOsdComposedStatus(const char *channelText, const char *rssiText,
   }
 
   bool popupChanged = false;
-  if (isOsdElementEnabled(kCfgLapPopupCol, kCfgLapPopupRow) && lapPopupText && lapPopupText[0] != '\0') {
+  const bool lapPopupEnabled = isOsdElementVisibleNow(kCfgLapPopupCol, kCfgLapPopupRow,
+                                                      kCfgLapPopupShowDuringRace, raceInProgress);
+  if (lapPopupEnabled && lapPopupText && lapPopupText[0] != '\0') {
     if (sendOsdText(kCfgLapPopupRow, kCfgLapPopupCol, lapPopupText)) {
       snprintf(sLastLapPopup, sizeof(sLastLapPopup), "%s", lapPopupText);
-      sLapPopupWasVisible = true;
       popupChanged = true;
     }
-  } else if (isOsdElementEnabled(kCfgLapPopupCol, kCfgLapPopupRow) && sLapPopupWasVisible) {
+    sLapPopupWasVisible = true;
+  } else if (lapPopupEnabled && sLapPopupWasVisible) {
     // Clear stale popup text without clearing the whole OSD frame.
+    if (sendOsdText(kCfgLapPopupRow, kCfgLapPopupCol, "                ")) {
+      sLapPopupWasVisible = false;
+      sLastLapPopup[0] = '\0';
+      popupChanged = true;
+    }
+  } else if (!lapPopupEnabled && sLapPopupWasVisible) {
     if (sendOsdText(kCfgLapPopupRow, kCfgLapPopupCol, "                ")) {
       sLapPopupWasVisible = false;
       sLastLapPopup[0] = '\0';
@@ -2035,9 +2208,9 @@ void sendOsdComposedStatus(const char *channelText, const char *rssiText,
   if (waitVtxAdminText && waitVtxAdminText[0] != '\0') {
     if (sendOsdText(kOsdWaitVtxAdminRow, kOsdWaitVtxAdminCol, waitVtxAdminText)) {
       snprintf(sLastWaitVtx, sizeof(sLastWaitVtx), "%s", waitVtxAdminText);
-      sWaitVtxWasVisible = true;
       waitChanged = true;
     }
+    sWaitVtxWasVisible = true;
   } else if (sWaitVtxWasVisible) {
     if (sendOsdText(kOsdWaitVtxAdminRow, kOsdWaitVtxAdminCol, "                ")) {
       sWaitVtxWasVisible = false;
@@ -2049,22 +2222,36 @@ void sendOsdComposedStatus(const char *channelText, const char *rssiText,
   const unsigned long now = millis();
   const bool heartbeatDisplay = (now - sLastDisplayMs) >= 1500UL;
   if (sentAnyText || popupChanged || waitChanged || heartbeatDisplay) {
-    if (sendOsdDisplay()) {
-      sLastDisplayMs = now;
-    }
+    sLastDisplayMs = now;
+    return true;
   }
+  return false;
 }
 
 void sendLockedStatusOsd() {
   const unsigned long now = millis();
+  const bool armActiveForTiming = !gArmSourceEnabled || (gArmStateKnown && gArmActive);
+  const bool raceInProgress = (gTimerMode == MODE_TIMING) && armActiveForTiming;
   bool showLapPopup = timerActive(now, gLapPopupUntilMs) && gLastLapMs > 0;
   char lapPopup[32] = {};
   if (showLapPopup) {
     const uint32_t lastSec = gLastLapMs / 1000U;
     const uint32_t lastCs = (gLastLapMs % 1000U) / 10U;
-    snprintf(lapPopup, sizeof(lapPopup), "L%02lu %lu.%02lu",
-             static_cast<unsigned long>(gSessionLapCount),
-             static_cast<unsigned long>(lastSec), static_cast<unsigned long>(lastCs));
+    if (gBestHalfSessionAvgMs > 0) {
+      const int32_t deltaMs = static_cast<int32_t>(gLastLapMs) - static_cast<int32_t>(gBestHalfSessionAvgMs);
+      const uint32_t deltaAbsMs = static_cast<uint32_t>(deltaMs < 0 ? -deltaMs : deltaMs);
+      const uint32_t deltaSec = deltaAbsMs / 1000U;
+      const uint32_t deltaCs = (deltaAbsMs % 1000U) / 10U;
+      const char deltaSign = (deltaMs < 0) ? '-' : '+';
+      snprintf(lapPopup, sizeof(lapPopup), "L%02lu %02lu.%02lu %c%02lu.%02lu",
+               static_cast<unsigned long>(gSessionLapCount),
+               static_cast<unsigned long>(lastSec), static_cast<unsigned long>(lastCs), deltaSign,
+               static_cast<unsigned long>(deltaSec), static_cast<unsigned long>(deltaCs));
+    } else {
+      snprintf(lapPopup, sizeof(lapPopup), "L%02lu %02lu.%02lu",
+               static_cast<unsigned long>(gSessionLapCount),
+               static_cast<unsigned long>(lastSec), static_cast<unsigned long>(lastCs));
+    }
     if (gBestLapBlinkStartMs != 0) {
       const unsigned long elapsed = now - gBestLapBlinkStartMs;
       const unsigned long toggleIndex = elapsed / kBestLapBlinkToggleMs;
@@ -2091,9 +2278,6 @@ void sendLockedStatusOsd() {
   char bestLapRaceText[20] = "RF:00.00";
   char best3Text[20] = "S3:00.00";
   char best3RaceText[20] = "R3:00.00";
-  char lastLap1Text[20] = "00:00.00";
-  char lastLap2Text[20] = "00:00.00";
-  char lastLap3Text[20] = "00:00.00";
 
   uint8_t channelDisplayIndex = gLockedIndex;
   if (gVtxCalActive && gVtxCalIndex < kTimerChannelCount) {
@@ -2127,61 +2311,50 @@ void sendLockedStatusOsd() {
     if (gBestLapSessionMs > 0) {
       const uint32_t bs = gBestLapSessionMs / 1000U;
       const uint32_t bc = (gBestLapSessionMs % 1000U) / 10U;
-      snprintf(bestLapText, sizeof(bestLapText), "SF:%lu.%02lu", static_cast<unsigned long>(bs),
+      snprintf(bestLapText, sizeof(bestLapText), "SF:%02lu.%02lu", static_cast<unsigned long>(bs),
                static_cast<unsigned long>(bc));
     }
     if (gBestLapRaceMs > 0) {
       const uint32_t brs = gBestLapRaceMs / 1000U;
       const uint32_t brc = (gBestLapRaceMs % 1000U) / 10U;
-      snprintf(bestLapRaceText, sizeof(bestLapRaceText), "RF:%lu.%02lu", static_cast<unsigned long>(brs),
+      snprintf(bestLapRaceText, sizeof(bestLapRaceText), "RF:%02lu.%02lu", static_cast<unsigned long>(brs),
                static_cast<unsigned long>(brc));
     }
     if (gBest3ConsecutiveAllTimeMs > 0) {
       const uint32_t b3s = gBest3ConsecutiveAllTimeMs / 1000U;
       const uint32_t b3c = (gBest3ConsecutiveAllTimeMs % 1000U) / 10U;
-      snprintf(best3Text, sizeof(best3Text), "S3:%lu.%02lu", static_cast<unsigned long>(b3s),
+      snprintf(best3Text, sizeof(best3Text), "S3:%02lu.%02lu", static_cast<unsigned long>(b3s),
                static_cast<unsigned long>(b3c));
     }
     if (gBest3ConsecutiveRaceMs > 0) {
       const uint32_t b3rs = gBest3ConsecutiveRaceMs / 1000U;
       const uint32_t b3rc = (gBest3ConsecutiveRaceMs % 1000U) / 10U;
-      snprintf(best3RaceText, sizeof(best3RaceText), "R3:%lu.%02lu", static_cast<unsigned long>(b3rs),
+      snprintf(best3RaceText, sizeof(best3RaceText), "R3:%02lu.%02lu", static_cast<unsigned long>(b3rs),
                static_cast<unsigned long>(b3rc));
-    }
-    uint32_t laps[3] = {0, 0, 0};  // [0]=last, [1]=prev, [2]=prev2
-    uint8_t count = 0;
-    getLastNLaps(3, laps, count);
-    if (count > 0) {
-      const uint32_t s = laps[0] / 1000U;
-      const uint32_t c = (laps[0] % 1000U) / 10U;
-      const uint32_t lapNo = gSessionLapCount;
-      snprintf(lastLap1Text, sizeof(lastLap1Text), "%02lu:%lu.%02lu",
-               static_cast<unsigned long>(lapNo), static_cast<unsigned long>(s), static_cast<unsigned long>(c));
-    }
-    if (count > 1) {
-      const uint32_t s = laps[1] / 1000U;
-      const uint32_t c = (laps[1] % 1000U) / 10U;
-      const uint32_t lapNo = (gSessionLapCount >= 1U) ? (gSessionLapCount - 1U) : 0U;
-      snprintf(lastLap2Text, sizeof(lastLap2Text), "%02lu:%lu.%02lu",
-               static_cast<unsigned long>(lapNo), static_cast<unsigned long>(s), static_cast<unsigned long>(c));
-    }
-    if (count > 2) {
-      const uint32_t s = laps[2] / 1000U;
-      const uint32_t c = (laps[2] % 1000U) / 10U;
-      const uint32_t lapNo = (gSessionLapCount >= 2U) ? (gSessionLapCount - 2U) : 0U;
-      snprintf(lastLap3Text, sizeof(lastLap3Text), "%02lu:%lu.%02lu",
-               static_cast<unsigned long>(lapNo), static_cast<unsigned long>(s), static_cast<unsigned long>(c));
     }
   }
 
   uint8_t adminIdx = 0;
   const bool hasAdminChannel = tryGetAdminChannelIndex(adminIdx);
   const bool waitingForVtxAdmin = (gChannelSelectSource == CHANNEL_SELECT_SOURCE_ADMIN) && !hasAdminChannel;
-  sendOsdComposedStatus(channelText, rssiText, rssiThrUpperText, rssiThrLowerText,
-                        bestLapText, bestLapRaceText, best3Text, best3RaceText,
-                        lastLap1Text, lastLap2Text, lastLap3Text,
-                        showLapPopup ? lapPopup : nullptr,
-                        waitingForVtxAdmin ? "WAIT VTX ADMIN" : nullptr);
+  const bool composedChanged = sendOsdComposedStatus(channelText, rssiText, rssiThrUpperText, rssiThrLowerText,
+                                                     bestLapText, bestLapRaceText, best3Text, best3RaceText,
+                                                     showLapPopup ? lapPopup : nullptr,
+                                                     waitingForVtxAdmin ? "WAIT VTX ADMIN" : nullptr,
+                                                     raceInProgress);
+
+  const uint32_t *lapsToRender = gCurrentRaceLapsMs;
+  uint8_t lapsToRenderCount = gCurrentRaceLapCount;
+  if (!raceInProgress && lapsToRenderCount == 0 && gLastCompletedRaceLapCount > 0) {
+    lapsToRender = gLastCompletedRaceLapsMs;
+    lapsToRenderCount = gLastCompletedRaceLapCount;
+  }
+  const bool raceLapsVisibleNow =
+      isOsdElementVisibleNow(kCfgOsdRaceLapsCol, kCfgOsdRaceLapsRow, kCfgOsdRaceLapsShowDuringRace, raceInProgress);
+  const bool raceLapsChanged = sendRaceLapsColumnOsd(lapsToRender, lapsToRenderCount, raceLapsVisibleNow);
+  if (composedChanged || raceLapsChanged) {
+    sendOsdDisplay();
+  }
 }
 
 void sendBindBroadcast() {
@@ -2429,6 +2602,7 @@ void resetRaceLapStateForNewRace() {
   gRecentRaceLapWindow[1] = 0;
   gRecentRaceLapWindow[2] = 0;
   gRecentRaceLapWindowCount = 0;
+  clearCurrentRaceLaps();
   resetPeakCaptureState();
 }
 
@@ -2520,12 +2694,14 @@ bool applyVtxRequestedChannel(uint8_t index) {
 }
 
 void processScan(unsigned long now) {
+  static bool sAdminChannelWasAvailable = false;
   if (now - gLastScanStepMs < kScanStepMs) {
     return;
   }
   gLastScanStepMs = now;
 
   if (gVtxCalActive) {
+    sAdminChannelWasAvailable = false;
     const bool armReady = isArmReadyForCalibration();
     const RaceChannel &ch = kTimerChannels[gVtxCalIndex];
     setRX5808Frequency(ch.freqMhz);
@@ -2544,7 +2720,8 @@ void processScan(unsigned long now) {
       Serial.printf("VTX-CAL LOCK on %s (%u MHz), RSSI=%u (peak=%u)\n",
                     ch.name, ch.freqMhz, rssi, lockRssi);
       lockToChannel(gVtxCalIndex, lockRssi);
-    } else if (gLinkConnected) {
+    } else if (gLinkConnected && now - gLastOsdStatusMs >= kOsdStatusPeriodMs) {
+      gLastOsdStatusMs = now;
       sendLockedStatusOsd();
     }
     return;
@@ -2554,7 +2731,8 @@ void processScan(unsigned long now) {
   // If channel code is known, operate only on that channel; otherwise wait.
   if (gChannelSelectSource == CHANNEL_SELECT_SOURCE_ADMIN) {
     uint8_t forcedIdx = 0;
-    if (tryGetAdminChannelIndex(forcedIdx)) {
+    const bool hasAdminChannel = tryGetAdminChannelIndex(forcedIdx);
+    if (hasAdminChannel) {
       const RaceChannel &forced = kTimerChannels[forcedIdx];
       setRX5808Frequency(forced.freqMhz);
       const uint8_t rssi = readAveragedRssi(6);
@@ -2564,6 +2742,10 @@ void processScan(unsigned long now) {
         char chMsg[42];
         snprintf(chMsg, sizeof(chMsg), "CH %s RSSI %u", forced.name, rssi);
         sendOsdMessageIfChanged(chMsg);
+        if (!sAdminChannelWasAvailable || now - gLastOsdStatusMs >= kOsdStatusPeriodMs) {
+          gLastOsdStatusMs = now;
+          sendLockedStatusOsd();
+        }
       }
       if (rssi > gStrongSignalRssi && isArmReadyForCalibration()) {
         lockToChannel(forcedIdx, rssi);
@@ -2572,8 +2754,10 @@ void processScan(unsigned long now) {
       gLastOsdStatusMs = now;
       sendLockedStatusOsd();
     }
+    sAdminChannelWasAvailable = hasAdminChannel;
     return;
   }
+  sAdminChannelWasAvailable = false;
 
   // AUX source mode: do not use fallback sweep; wait until AUX range maps to R1..R8.
   if (gChannelSelectSource == CHANNEL_SELECT_SOURCE_AUX) {
@@ -2633,6 +2817,9 @@ void processTiming(unsigned long now) {
         startNewRace = true;
       }
       if (startNewRace) {
+        if (gCurrentRaceLapCount > 0) {
+          archiveCurrentRaceLapsAsLastCompleted();
+        }
         gRaceCount++;
         gCurrentRaceNo = gRaceCount;
         Serial.printf("NEW RACE #%lu (disarm gap rule: %lus)\n",
@@ -2707,11 +2894,11 @@ void processTiming(unsigned long now) {
             gLastLapPeakMs = gRssiPeakTimeMs;
             const uint32_t sec = lapMs / 1000U;
             const uint32_t cs = (lapMs % 1000U) / 10U;
-            Serial.printf("Lap ignored as outlier: %lu.%02lu (fake-lap filter)\n",
+            Serial.printf("Lap ignored as outlier: %02lu.%02lu (fake-lap filter)\n",
                           static_cast<unsigned long>(sec), static_cast<unsigned long>(cs));
             if (gLinkConnected) {
               char msg[24];
-              snprintf(msg, sizeof(msg), "IGN %lu.%02lu",
+              snprintf(msg, sizeof(msg), "IGN %02lu.%02lu",
                        static_cast<unsigned long>(sec), static_cast<unsigned long>(cs));
               sendOsdMessageIfChanged(msg);
             }
@@ -2730,6 +2917,8 @@ void processTiming(unsigned long now) {
             }
           }
           pushLapHistory(lapMs);
+          appendCurrentRaceLap(lapMs);
+          appendSessionLapForBestHalfAverage(lapMs);
           const bool isNewBestLap = (gBestLapSessionMs == 0) || (lapMs < gBestLapSessionMs);
           if (gBestLapSessionMs == 0 || lapMs < gBestLapSessionMs) {
             gBestLapSessionMs = lapMs;
@@ -2753,8 +2942,20 @@ void processTiming(unsigned long now) {
 
           const uint32_t sec = lapMs / 1000U;
           const uint32_t ms = lapMs % 1000U;
-          Serial.printf("LAP %u: %lu.%03lus (peak=%u, exitStreak=%u)\n", gLapCount, static_cast<unsigned long>(sec),
+          Serial.printf("LAP %u: %02lu.%03lus (peak=%u, exitStreak=%u)\n", gLapCount, static_cast<unsigned long>(sec),
                         static_cast<unsigned long>(ms), gRssiPeak, gBelowExitStreak);
+          if (gBestHalfSessionAvgMs > 0) {
+            const uint32_t avgSec = gBestHalfSessionAvgMs / 1000U;
+            const uint32_t avgCs = (gBestHalfSessionAvgMs % 1000U) / 10U;
+            const int32_t deltaMs = static_cast<int32_t>(lapMs) - static_cast<int32_t>(gBestHalfSessionAvgMs);
+            const uint32_t deltaAbsMs = static_cast<uint32_t>(deltaMs < 0 ? -deltaMs : deltaMs);
+            const uint32_t deltaSec = deltaAbsMs / 1000U;
+            const uint32_t deltaCs = (deltaAbsMs % 1000U) / 10U;
+            const char deltaSign = (deltaMs < 0) ? '-' : '+';
+            Serial.printf("TOP50 AVG: %02lu.%02lu  DELTA: %c%02lu.%02lu\n",
+                          static_cast<unsigned long>(avgSec), static_cast<unsigned long>(avgCs),
+                          deltaSign, static_cast<unsigned long>(deltaSec), static_cast<unsigned long>(deltaCs));
+          }
           if (isNewBestLap) {
             Serial.println("New BEST lap -> popup blinking for 5s");
           }
@@ -2789,14 +2990,24 @@ void setup() {
                 gStrongSignalRssi, static_cast<int>(gEnterRssiOffset), static_cast<int>(gExitRssiOffset),
                 static_cast<unsigned long>(gMinLapIntervalMs), static_cast<unsigned long>(gPostLockArmDelayMs),
                 static_cast<unsigned>(gExitConfirmSamples));
-  Serial.printf("OSD elements: CH(%u,%u) RSSI(%u,%u) THU(%u,%u) THL(%u,%u) BEST(%u,%u) FR(%u,%u) B3(%u,%u) B3R(%u,%u) L1(%u,%u) L2(%u,%u) L3(%u,%u) POP(%u,%u)\n",
+  Serial.printf("OSD elements: CH(%u,%u) RSSI(%u,%u) THU(%u,%u) THL(%u,%u) BEST(%u,%u) FR(%u,%u) B3(%u,%u) B3R(%u,%u) RACE_LAPS(%u,%u) POP(%u,%u)\n",
                 kCfgOsdChannelCol, kCfgOsdChannelRow, kCfgOsdRssiCol, kCfgOsdRssiRow,
                 kCfgOsdRssiThrUpperCol, kCfgOsdRssiThrUpperRow, kCfgOsdRssiThrLowerCol, kCfgOsdRssiThrLowerRow,
                 kCfgOsdBestLapCol, kCfgOsdBestLapRow, kCfgOsdBestLapRaceCol, kCfgOsdBestLapRaceRow,
                 kCfgOsdBest3Col, kCfgOsdBest3Row,
                 kCfgOsdBest3RaceCol, kCfgOsdBest3RaceRow,
-                kCfgOsdLastLap1Col, kCfgOsdLastLap1Row, kCfgOsdLastLap2Col, kCfgOsdLastLap2Row,
-                kCfgOsdLastLap3Col, kCfgOsdLastLap3Row, kCfgLapPopupCol, kCfgLapPopupRow);
+                kCfgOsdRaceLapsCol, kCfgOsdRaceLapsRow, kCfgLapPopupCol, kCfgLapPopupRow);
+  Serial.printf("OSD showDuringRace: CH=%u RSSI=%u THU=%u THL=%u SF=%u RF=%u S3=%u R3=%u LAPS=%u POP=%u\n",
+                static_cast<unsigned>(kCfgOsdChannelShowDuringRace),
+                static_cast<unsigned>(kCfgOsdRssiShowDuringRace),
+                static_cast<unsigned>(kCfgOsdRssiThrUpperShowDuringRace),
+                static_cast<unsigned>(kCfgOsdRssiThrLowerShowDuringRace),
+                static_cast<unsigned>(kCfgOsdBestLapShowDuringRace),
+                static_cast<unsigned>(kCfgOsdBestLapRaceShowDuringRace),
+                static_cast<unsigned>(kCfgOsdBest3ShowDuringRace),
+                static_cast<unsigned>(kCfgOsdBest3RaceShowDuringRace),
+                static_cast<unsigned>(kCfgOsdRaceLapsShowDuringRace),
+                static_cast<unsigned>(kCfgLapPopupShowDuringRace));
   if (gChannelSelectSource == CHANNEL_SELECT_SOURCE_ADMIN) {
     Serial.println("Channel select source: ADMIN");
   } else {

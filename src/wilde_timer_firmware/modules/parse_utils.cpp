@@ -144,3 +144,63 @@ bool parseOsdPointStrict(const char *text, uint8_t &col, uint8_t &row) {
   row = static_cast<uint8_t>(rowVal);
   return true;
 }
+
+bool parseOsdPointWithFlagStrict(const char *text, uint8_t &col, uint8_t &row, bool &showDuringRace, bool &hasFlag) {
+  if (!text) {
+    return false;
+  }
+  char buf[64] = {};
+  snprintf(buf, sizeof(buf), "%s", text);
+  char *s = trimInPlace(buf);
+  const size_t len = strlen(s);
+  if (len < 5 || s[0] != '[' || s[len - 1] != ']') {
+    return false;
+  }
+
+  s[len - 1] = '\0';
+  char *firstComma = strchr(s + 1, ',');
+  if (!firstComma) {
+    return false;
+  }
+  *firstComma = '\0';
+  char *left = trimInPlace(s + 1);
+
+  char *rest = trimInPlace(firstComma + 1);
+  char *secondComma = strchr(rest, ',');
+
+  char *mid = rest;
+  char *right = nullptr;
+  hasFlag = false;
+  showDuringRace = true;
+
+  if (secondComma) {
+    *secondComma = '\0';
+    right = trimInPlace(secondComma + 1);
+    if (strchr(right, ',') != nullptr) {
+      return false;
+    }
+    hasFlag = true;
+  }
+  mid = trimInPlace(mid);
+
+  unsigned long colVal = 0;
+  unsigned long rowVal = 0;
+  if (!parseUnsignedLongStrict(left, colVal) || !parseUnsignedLongStrict(mid, rowVal)) {
+    return false;
+  }
+  if (colVal > 255UL || rowVal > 255UL) {
+    return false;
+  }
+
+  if (hasFlag) {
+    bool flagVal = true;
+    if (!parseBoolStrict(right, flagVal)) {
+      return false;
+    }
+    showDuringRace = flagVal;
+  }
+
+  col = static_cast<uint8_t>(colVal);
+  row = static_cast<uint8_t>(rowVal);
+  return true;
+}
