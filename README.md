@@ -113,9 +113,9 @@ Popup includes lap delta against a dynamic baseline:
 
 - take last 100 valid session laps
 - sort by lap time
-- take fastest 50
-- average those 50
-- display `lastLap - avgTop50(last100)`
+- take fastest top 50% of currently available laps
+- average that fastest subset
+- display `lastLap - avgTop50pct(last100)`
 
 Popup format:
 
@@ -132,16 +132,19 @@ Meaning:
 
 - `gOsdChannel`
 - `gOsdRssi`
+- `gOsdLapPeakRssi`
 - `gOsdRssiThrUpper`
 - `gOsdRssiThrLower`
 - `gOsdBestLap` (SF)
 - `gOsdBestLap_race` (RF)
 - `gOsdBest3` (S3)
 - `gOsdBest3_race` (R3)
-- `raceLaps` (column `L1`, `L2`, ...)
+- `gOsdRaceLaps` (column `L1`, `L2`, ...)
 - `gOsdLapPopup`
 
 `WAIT VTX ADMIN` is internal and is not configured via `[col,row,flag]`.
+
+`gOsdLapPeakRssi` shows the max RSSI captured while signal was above lower threshold (`T-`) during the last gate pass (debug field).
 
 ### OSD config format
 
@@ -165,7 +168,7 @@ Notes:
 - If 3rd parameter is missing, firmware treats that as missing config and rewrites `/config.txt` with 3-parameter format.
 - Default for all `showDuringRace` flags is `1`.
 
-### `raceLaps` rendering
+### `gOsdRaceLaps` rendering
 
 - During race: renders current race laps (if enabled by `showDuringRace`)
 - Outside race: if current race list is empty, may show last completed race laps
@@ -195,19 +198,19 @@ CSV columns:
 
 - `gOsdChannel=[col,row,showDuringRace]`
 - `gOsdRssi=[col,row,showDuringRace]`
+- `gOsdLapPeakRssi=[col,row,showDuringRace]`
 - `gOsdRssiThrUpper=[col,row,showDuringRace]`
 - `gOsdRssiThrLower=[col,row,showDuringRace]`
 - `gOsdBestLap=[col,row,showDuringRace]`
 - `gOsdBestLap_race=[col,row,showDuringRace]`
 - `gOsdBest3=[col,row,showDuringRace]`
 - `gOsdBest3_race=[col,row,showDuringRace]`
-- `raceLaps=[col,row,showDuringRace]`
+- `gOsdRaceLaps=[col,row,showDuringRace]`
 - `gOsdLapPopup=[col,row,showDuringRace]`
 
 Also supported:
 
 - `osd_main_row`, `osd_main_col`
-- `lap_popup_row`, `lap_popup_col` (legacy popup position keys)
 
 ### Timing and RSSI
 
@@ -238,17 +241,16 @@ Defaults in current `main.cpp`:
 
 - `osd_main_row=17`
 - `osd_main_col=13`
-- `lap_popup_row=12`
-- `lap_popup_col=18`
 - `gOsdChannel=[10,17,1]`
 - `gOsdRssi=[12,16,1]`
-- `gOsdRssiThrUpper=[18,16,1]`
-- `gOsdRssiThrLower=[25,16,1]`
+- `gOsdLapPeakRssi=[18,16,1]`
+- `gOsdRssiThrUpper=[25,16,1]`
+- `gOsdRssiThrLower=[32,16,1]`
 - `gOsdBestLap=[13,17,1]`
 - `gOsdBestLap_race=[22,17,1]`
 - `gOsdBest3=[31,17,1]`
 - `gOsdBest3_race=[38,2,1]`
-- `raceLaps=[38,3,1]`
+- `gOsdRaceLaps=[38,3,1]`
 - `gOsdLapPopup=[18,12,1]`
 - `lock_threshold_rssi=100`
 - `enter_offset_rssi=-15`

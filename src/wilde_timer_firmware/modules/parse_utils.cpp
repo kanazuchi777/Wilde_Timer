@@ -113,38 +113,6 @@ bool parseUsRangeStrict(const char *text, uint16_t &minUs, uint16_t &maxUs) {
   return true;
 }
 
-bool parseOsdPointStrict(const char *text, uint8_t &col, uint8_t &row) {
-  if (!text) {
-    return false;
-  }
-  char buf[40] = {};
-  snprintf(buf, sizeof(buf), "%s", text);
-  char *s = trimInPlace(buf);
-  const size_t len = strlen(s);
-  if (len < 5 || s[0] != '[' || s[len - 1] != ']') {
-    return false;
-  }
-  s[len - 1] = '\0';
-  char *comma = strchr(s + 1, ',');
-  if (!comma) {
-    return false;
-  }
-  *comma = '\0';
-  char *left = trimInPlace(s + 1);
-  char *right = trimInPlace(comma + 1);
-  unsigned long colVal = 0;
-  unsigned long rowVal = 0;
-  if (!parseUnsignedLongStrict(left, colVal) || !parseUnsignedLongStrict(right, rowVal)) {
-    return false;
-  }
-  if (colVal > 255UL || rowVal > 255UL) {
-    return false;
-  }
-  col = static_cast<uint8_t>(colVal);
-  row = static_cast<uint8_t>(rowVal);
-  return true;
-}
-
 bool parseOsdPointWithFlagStrict(const char *text, uint8_t &col, uint8_t &row, bool &showDuringRace, bool &hasFlag) {
   if (!text) {
     return false;

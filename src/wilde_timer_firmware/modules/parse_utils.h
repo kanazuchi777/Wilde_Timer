@@ -8,5 +8,4 @@ bool parseSignedLongStrict(const char *text, long &out);
 bool parseUnsignedLongStrict(const char *text, unsigned long &out);
 bool parseBoolStrict(const char *text, bool &out);
 bool parseUsRangeStrict(const char *text, uint16_t &minUs, uint16_t &maxUs);
-bool parseOsdPointStrict(const char *text, uint8_t &col, uint8_t &row);
 bool parseOsdPointWithFlagStrict(const char *text, uint8_t &col, uint8_t &row, bool &showDuringRace, bool &hasFlag);
