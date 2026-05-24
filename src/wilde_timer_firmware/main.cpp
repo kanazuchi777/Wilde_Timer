@@ -154,6 +154,8 @@ static const uint8_t kCfgOsdMainColMin = 0;
 static const uint8_t kCfgOsdMainColMax = 50;
 static const uint8_t kCfgThresholdMin = 60;
 static const uint8_t kCfgThresholdMax = 230;
+static const uint8_t kEnterThresholdMin = 90;
+static const uint8_t kExitThresholdMin = 60;
 static const int8_t kCfgOffsetMin = -60;
 static const int8_t kCfgOffsetMax = 60;
 static const unsigned long kCfgCooldownMinMs = 1000;
@@ -2159,12 +2161,12 @@ bool detectRx5808Presence() {
 void applyThresholdsFromReferenceRssi(uint8_t referenceRssi) {
   int enter = static_cast<int>(referenceRssi) + static_cast<int>(gEnterRssiOffset);
   int exit = static_cast<int>(referenceRssi) + static_cast<int>(gExitRssiOffset);
-  enter = constrain(enter, static_cast<int>(kCfgThresholdMin), static_cast<int>(kCfgThresholdMax));
-  exit = constrain(exit, static_cast<int>(kCfgThresholdMin), static_cast<int>(kCfgThresholdMax));
+  enter = constrain(enter, static_cast<int>(kEnterThresholdMin), static_cast<int>(kCfgThresholdMax));
+  exit = constrain(exit, static_cast<int>(kExitThresholdMin), static_cast<int>(kCfgThresholdMax));
   if (exit >= enter) {
     exit = enter - 5;
-    if (exit < static_cast<int>(kCfgThresholdMin)) {
-      exit = kCfgThresholdMin;
+    if (exit < static_cast<int>(kExitThresholdMin)) {
+      exit = kExitThresholdMin;
     }
   }
   gEnterRssi = static_cast<uint8_t>(enter);
