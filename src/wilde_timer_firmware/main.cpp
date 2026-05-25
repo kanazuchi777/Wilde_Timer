@@ -168,7 +168,7 @@ static const uint8_t kCfgExitConfirmMax = 20;
 
 static const unsigned long kScanStepMs = 220;
 // Timing mode RSSI sampling period. Lower value -> more frequent gate checks.
-static const unsigned long kRssiSamplePeriodMs = 5;
+static const unsigned long kRssiSamplePeriodMs = 1;
 static const unsigned long kRssiLogPeriodMs = 500;
 static const bool kLogCrsfChannelChanges = false;
 static const bool kLogCrsfVtxPayload = false;
@@ -339,6 +339,8 @@ int gLastVtxAdminChannelCode = -1;
 bool gVtxAdminSeen = false;
 bool gVtxChannelPending = false;
 uint8_t gVtxChannelPendingIdx = 0;
+bool gVtxAdminSyncPending = false;
+uint8_t gVtxAdminSyncPendingIdx = 0;
 
 void prepareSdBusIo() {
   // SD and RX5808 share SCK/MOSI lines on current wiring.
@@ -563,6 +565,8 @@ uint8_t crc8DvbS2(uint8_t crc, uint8_t data) {
   return crsfCrc8DvbS2(crc, data);
 }
 
+void tryFlushPendingVtxAdminSync();
+
 void processCrsfFrame(const uint8_t *frame, uint8_t totalLen) {
   if (totalLen < 6) {
     return;
@@ -610,6 +614,9 @@ void processCrsfFrame(const uint8_t *frame, uint8_t totalLen) {
         }
         Serial.println();
       }
+      // If AUX-triggered channel change happened before we had a template payload,
+      // replay it now as soon as first valid VTX ADMIN payload is seen.
+      tryFlushPendingVtxAdminSync();
     }
 
     uint8_t chCode = 0;
@@ -840,6 +847,26 @@ bool sendVtxAdminChannelToElrs(uint8_t channelIndex) {
 
   const size_t written = Serial1.write(frame, n);
   return written == n;
+}
+
+void tryFlushPendingVtxAdminSync() {
+  if (!gVtxAdminSyncPending) {
+    return;
+  }
+  if (gChannelSelectSource != CHANNEL_SELECT_SOURCE_AUX) {
+    gVtxAdminSyncPending = false;
+    return;
+  }
+  if (gVtxAdminSyncPendingIdx >= kTimerChannelCount) {
+    gVtxAdminSyncPending = false;
+    return;
+  }
+  if (sendVtxAdminChannelToElrs(gVtxAdminSyncPendingIdx)) {
+    Serial.printf("Sent deferred VTX ADMIN channel update to goggles: %s (0x%02X)\n",
+                  kTimerChannels[gVtxAdminSyncPendingIdx].name,
+                  static_cast<unsigned>(channelIndexToVtxAdminCode(gVtxAdminSyncPendingIdx)));
+    gVtxAdminSyncPending = false;
+  }
 }
 
 bool sendVrxChannelIndex(uint8_t channelIndex) {
@@ -2265,26 +2292,27 @@ bool applyVtxRequestedChannel(uint8_t index) {
   gLastScanStepMs = 0;  // allow immediate first calibration sample
   Serial.printf("Applying VTX channel -> %s (%u MHz), starting calibration (RSSI must be > %u)\n",
                 ch.name, ch.freqMhz, gStrongSignalRssi);
-  if (gLinkConnected) {
+  {
     char msg[24];
     snprintf(msg, sizeof(msg), "CH %s CAL", ch.name);
     sendOsdMessageIfChanged(msg);
     sendLockedStatusOsd();
   }
-  if (gLinkConnected) {
-    if (sendVrxChannelIndex(index)) {
-      Serial.printf("Sent MSP_SET_VTX_CONFIG index=%u for %s\n",
-                    static_cast<unsigned>(32U + index), ch.name);
-    } else {
-      Serial.println("Failed to send MSP_SET_VTX_CONFIG for VRX channel sync");
-    }
+  if (sendVrxChannelIndex(index)) {
+    Serial.printf("Sent MSP_SET_VTX_CONFIG index=%u for %s\n",
+                  static_cast<unsigned>(32U + index), ch.name);
+  } else {
+    Serial.println("Failed to send MSP_SET_VTX_CONFIG for VRX channel sync");
   }
   if (gChannelSelectSource == CHANNEL_SELECT_SOURCE_AUX && index < 8) {
     if (sendVtxAdminChannelToElrs(index)) {
       Serial.printf("Sent VTX ADMIN channel update to goggles: %s (0x%02X)\n",
                     ch.name, static_cast<unsigned>(channelIndexToVtxAdminCode(index)));
+      gVtxAdminSyncPending = false;
     } else {
-      Serial.println("VTX ADMIN channel update skipped (no valid payload template yet)");
+      gVtxAdminSyncPending = true;
+      gVtxAdminSyncPendingIdx = index;
+      Serial.printf("VTX ADMIN sync pending for %s (template not ready yet)\n", ch.name);
     }
   }
   return true;
@@ -2383,7 +2411,7 @@ void processTiming(unsigned long now) {
   }
   gLastRssiSampleMs = now;
 
-  const uint8_t rssi = readAveragedRssi(3);
+  const uint8_t rssi = readAveragedRssi(1);
   gCurrentRssi = rssi;
   if (kLogTimingRssi && now - gLastRssiLogMs >= kRssiLogPeriodMs) {
     gLastRssiLogMs = now;
@@ -2462,8 +2490,12 @@ void processTiming(unsigned long now) {
   // Gate window is considered complete once RSSI has been below T- for confirmation streak.
   const bool gateWindowClosed = (gBelowExitStreak >= gExitConfirmSamples) && (gGateWindowPeakRssi > 0);
   if (gateWindowClosed) {
+    uint8_t lpPeak = gGateWindowPeakRssi;
+    if (gRssiPeak > lpPeak) {
+      lpPeak = gRssiPeak;
+    }
     const uint8_t prevLpPeak = gLastLapRssiPeak;
-    gLastLapRssiPeak = gGateWindowPeakRssi;
+    gLastLapRssiPeak = lpPeak;
     gGateWindowPeakRssi = 0;
     if (gLastLapRssiPeak != prevLpPeak) {
       sendLockedStatusOsd();
@@ -2506,7 +2538,7 @@ void processTiming(unsigned long now) {
         }
         gLastLapPeakMs = (firstLapRefMs > 0) ? firstLapRefMs : gRssiPeakTimeMs;
       }
-      if (gLastLapRssiPeak == 0) {
+      if (gRssiPeak > gLastLapRssiPeak) {
         gLastLapRssiPeak = gRssiPeak;
       }
     }
@@ -2729,7 +2761,17 @@ void loop() {
           gVtxChannelPending = true;
         }
       } else if (gChannelSelectSource == CHANNEL_SELECT_SOURCE_AUX) {
-        Serial.printf("Link connected -> waiting AUX%u range mapping\n", static_cast<unsigned>(gAuxSelectNumber));
+        if (gLastAuxRequestedIdx >= 0 && gLastAuxRequestedIdx < 8) {
+          const uint8_t auxIdx = static_cast<uint8_t>(gLastAuxRequestedIdx);
+          Serial.printf("Link connected -> reapply AUX%u mapped channel %s\n",
+                        static_cast<unsigned>(gAuxSelectNumber), kTimerChannels[auxIdx].name);
+          if (!applyVtxRequestedChannel(auxIdx)) {
+            gVtxChannelPendingIdx = auxIdx;
+            gVtxChannelPending = true;
+          }
+        } else {
+          Serial.printf("Link connected -> waiting AUX%u range mapping\n", static_cast<unsigned>(gAuxSelectNumber));
+        }
       }
     } else if (!gRx5808Enabled) {
       Serial.println("Link connected (RX5808 unavailable, scan remains disabled)");
