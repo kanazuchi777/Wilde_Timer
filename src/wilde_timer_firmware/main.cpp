@@ -130,16 +130,16 @@ static uint8_t kCfgOsdRaceLapsRow = 3;
 static uint8_t kCfgOsdRaceLapsCol = 38;
 static bool kCfgOsdRaceLapsShowDuringRace = true;
 static bool kCfgLapPopupShowDuringRace = true;
-static uint8_t kCfgLockThresholdRssi = 100;                     // RSSI lock threshold during scan
+static uint8_t kCfgLockThresholdRssi = 100;                     // RSSI lock threshold for scan-to-lock gating paths
 static int8_t kCfgEnterOffsetRssi = -25;                      // Enter offset from lock RSSI (e.g. -25)
 static int8_t kCfgExitOffsetRssi = -40;                     // Exit offset from lock RSSI (e.g. -40)
 static unsigned long kCfgMinLapIntervalMs = 8000;    // Minimum time between laps
-static unsigned long kCfgPostLockIgnoreMs = 6000;   // Ignore gate arming shortly after LOCK (prevents false first lap)
+static unsigned long kCfgPostLockIgnoreMs = 6000;   // Legacy config key (currently not used by runtime logic)
 static uint8_t kCfgExitConfirmBelowSamples = 4;             // Consecutive samples below exit required
 // RX5808 mode: 0=AUTO detect, 1=FORCE ON, 2=FORCE OFF
 static uint8_t kCfgRx5808ModeSelect = 0;
 static bool kCfgSdLapLoggingEnabled = true;                     // true=write valid laps to /LOGS/laps.csv on microSD
-static char kCfgChannelSelectSource[12] = "ADMIN";              // "ADMIN" or "AUX7"
+static char kCfgChannelSelectSource[12] = "AUX7";              // "ADMIN" or "AUX7"
 static uint16_t kCfgAuxRangeMinUs[8] = {1540, 1565, 1625, 1665, 1725, 1765, 1825, 1860};
 static uint16_t kCfgAuxRangeMaxUs[8] = {1560, 1620, 1660, 1720, 1760, 1820, 1860, 1920};
 static char kCfgArmSource[12] = "AUX1";                         // "NONE" or "AUX1"
@@ -154,21 +154,21 @@ static const uint8_t kCfgOsdMainColMin = 0;
 static const uint8_t kCfgOsdMainColMax = 50;
 static const uint8_t kCfgThresholdMin = 60;
 static const uint8_t kCfgThresholdMax = 230;
-static const uint8_t kEnterThresholdMin = 90;
+static const uint8_t kEnterThresholdMin = 80;
+static const uint8_t kEnterThresholdMax = 100;
 static const uint8_t kExitThresholdMin = 60;
+static const uint8_t kExitThresholdMax = 75;
 static const int8_t kCfgOffsetMin = -60;
 static const int8_t kCfgOffsetMax = 60;
 static const unsigned long kCfgCooldownMinMs = 1000;
 static const unsigned long kCfgCooldownMaxMs = 60000;
-static const unsigned long kCfgPostLockArmDelayMinMs = 0;
-static const unsigned long kCfgPostLockArmDelayMaxMs = 30000;
 static const uint8_t kCfgExitConfirmMin = 1;
 static const uint8_t kCfgExitConfirmMax = 20;
 // =====================================================================
 
-static const unsigned long kScanStepMs = 220;
+static const unsigned long kScanStepMs = 2;
 // Timing mode RSSI sampling period. Lower value -> more frequent gate checks.
-static const unsigned long kRssiSamplePeriodMs = 1;
+static const unsigned long kRssiSamplePeriodMs = 2;
 static const unsigned long kRssiLogPeriodMs = 500;
 static const bool kLogCrsfChannelChanges = false;
 static const bool kLogCrsfVtxPayload = false;
@@ -223,7 +223,7 @@ uint8_t gBestScanRssi = 0;
 unsigned long gLastScanStepMs = 0;
 bool gVtxCalActive = false;
 uint8_t gVtxCalIndex = 0;
-bool gThresholdsCalibrated = false;
+bool gRaceNeedsFirstGateCalibration = true;
 
 uint8_t gLockedIndex = 0;
 uint8_t gCurrentRssi = 0;
@@ -278,7 +278,6 @@ uint8_t gStrongSignalRssi = 120;
 int8_t gEnterRssiOffset = 15;
 int8_t gExitRssiOffset = -15;
 unsigned long gMinLapIntervalMs = 10000;
-unsigned long gPostLockArmDelayMs = 6000;
 uint8_t gExitConfirmSamples = 4;
 bool gRx5808Enabled = false;
 bool gSdReady = false;
@@ -429,7 +428,6 @@ void applyUserSettings() {
   gExitRssiOffset = static_cast<int8_t>(constrain(static_cast<int>(kCfgExitOffsetRssi), static_cast<int>(kCfgOffsetMin),
                                                    static_cast<int>(kCfgOffsetMax)));
   gMinLapIntervalMs = constrain(kCfgMinLapIntervalMs, kCfgCooldownMinMs, kCfgCooldownMaxMs);
-  gPostLockArmDelayMs = constrain(kCfgPostLockIgnoreMs, kCfgPostLockArmDelayMinMs, kCfgPostLockArmDelayMaxMs);
   gExitConfirmSamples =
       static_cast<uint8_t>(constrain(kCfgExitConfirmBelowSamples, kCfgExitConfirmMin, kCfgExitConfirmMax));
 
@@ -862,7 +860,7 @@ void tryFlushPendingVtxAdminSync() {
     return;
   }
   if (sendVtxAdminChannelToElrs(gVtxAdminSyncPendingIdx)) {
-    Serial.printf("Sent deferred VTX ADMIN channel update to goggles: %s (0x%02X)\n",
+    Serial.printf("Sent deferred VTX Admin channel update to goggles: %s (0x%02X)\n",
                   kTimerChannels[gVtxAdminSyncPendingIdx].name,
                   static_cast<unsigned>(channelIndexToVtxAdminCode(gVtxAdminSyncPendingIdx)));
     gVtxAdminSyncPending = false;
@@ -1446,11 +1444,11 @@ static void onUsbEvent(void *arg, esp_event_base_t event_base, int32_t event_id,
   switch (event_id) {
     case ARDUINO_USB_STARTED_EVENT:
       gUsbMscHostActive = true;
-      Serial.println("USB connected -> MSC active");
+      Serial.println("USB connected: MSC active");
       break;
     case ARDUINO_USB_STOPPED_EVENT:
       gUsbMscHostActive = false;
-      Serial.println("USB disconnected -> timer active");
+      Serial.println("USB disconnected: timer active");
       break;
     default:
       break;
@@ -1568,7 +1566,7 @@ void flushPendingLapLogsToSd() {
   prepareSdBusIo();
   File f = SD.open(kSdLapsPath, FILE_APPEND);
   if (!f) {
-    Serial.println("SD append failed -> trying recover");
+    Serial.println("SD append failed: trying recover");
     gSdReady = false;
     if (!recoverSdForLogging()) {
       disableSdLoggingRuntime("append recover failed (card missing?)");
@@ -1620,14 +1618,14 @@ void setupSdLogging() {
     Serial.println("Config loaded from /config.txt");
     if (hadMissingConfigKeys) {
       if (writeConfigToSd()) {
-        Serial.println("Config file had missing keys -> auto-filled /config.txt");
+        Serial.println("Config file had missing keys: auto-filled /config.txt");
       } else {
         Serial.println("Config file had missing keys, but auto-fill failed");
       }
     }
   } else {
     if (writeConfigToSd()) {
-      Serial.println("Config missing -> created /config.txt with defaults");
+      Serial.println("Config missing: created /config.txt with defaults");
     } else {
       Serial.println("Config write failed (continuing with hardcoded defaults)");
     }
@@ -2131,6 +2129,15 @@ void setRX5808Frequency(uint16_t freqMhz) {
   gLastRx5808BusMs = gFreqChangeMs;
 }
 
+void ensureRx5808Frequency(uint16_t freqMhz) {
+  static uint16_t sLastRx5808FreqMhz = 0;
+  if (sLastRx5808FreqMhz == freqMhz) {
+    return;
+  }
+  setRX5808Frequency(freqMhz);
+  sLastRx5808FreqMhz = freqMhz;
+}
+
 uint8_t readRawRssi() {
   if (gRecentFreqChange) {
     const unsigned long elapsed = millis() - gFreqChangeMs;
@@ -2188,8 +2195,8 @@ bool detectRx5808Presence() {
 void applyThresholdsFromReferenceRssi(uint8_t referenceRssi) {
   int enter = static_cast<int>(referenceRssi) + static_cast<int>(gEnterRssiOffset);
   int exit = static_cast<int>(referenceRssi) + static_cast<int>(gExitRssiOffset);
-  enter = constrain(enter, static_cast<int>(kEnterThresholdMin), static_cast<int>(kCfgThresholdMax));
-  exit = constrain(exit, static_cast<int>(kExitThresholdMin), static_cast<int>(kCfgThresholdMax));
+  enter = constrain(enter, static_cast<int>(kEnterThresholdMin), static_cast<int>(kEnterThresholdMax));
+  exit = constrain(exit, static_cast<int>(kExitThresholdMin), static_cast<int>(kExitThresholdMax));
   if (exit >= enter) {
     exit = enter - 5;
     if (exit < static_cast<int>(kExitThresholdMin)) {
@@ -2209,7 +2216,7 @@ void resetPeakCaptureState() {
 
 void resetRaceLapStateForNewRace() {
   // Start a fresh race while preserving session-level history/stats.
-  gThresholdsCalibrated = false;
+  gRaceNeedsFirstGateCalibration = true;
   gRaceStarted = false;
   gLastLapPeakMs = 0;
   gRaceStartMs = 0;
@@ -2233,9 +2240,9 @@ void lockToChannel(uint8_t index, uint8_t lockRssi) {
   gLockedIndex = index;
   gBestScanRssi = lockRssi;
   gTimerMode = MODE_TIMING;
-  // Initial thresholds are seeded now, then refined on the first valid gate pass peak.
+  // Seed thresholds now, then perform one-shot per-race calibration on first gate pass peak.
   applyThresholdsFromReferenceRssi(lockRssi);
-  gThresholdsCalibrated = false;
+  gRaceNeedsFirstGateCalibration = true;
 
   resetPeakCaptureState();
   gRaceStarted = false;
@@ -2248,10 +2255,9 @@ void lockToChannel(uint8_t index, uint8_t lockRssi) {
   char lockMsg[40];
   snprintf(lockMsg, sizeof(lockMsg), "LOCK %s %uMHz", kTimerChannels[gLockedIndex].name, kTimerChannels[gLockedIndex].freqMhz);
   Serial.println(lockMsg);
-  Serial.printf("Thresholds(seed): enter=%u exit=%u minLap=%lums\n", gEnterRssi, gExitRssi,
+  Serial.printf("Thresholds (seed): enter=%u exit=%u minLap=%lums\n", gEnterRssi, gExitRssi,
                 static_cast<unsigned long>(gMinLapIntervalMs));
-  Serial.printf("Calibration waits for gate peak RSSI > %u\n", gStrongSignalRssi);
-  Serial.printf("Post-lock arm delay: %lums\n", static_cast<unsigned long>(gPostLockArmDelayMs));
+  Serial.println("First-pass calibration: next gate peak will set enter/exit once for this race");
   Serial.printf("OSD lock info for %lus: %s E=%u X=%u\n", static_cast<unsigned long>(kLockInfoDisplayMs / 1000UL),
                 kTimerChannels[gLockedIndex].name, static_cast<unsigned>(gEnterRssi), static_cast<unsigned>(gExitRssi));
   // Force immediate OSD update so stale "SCAN ..." text is replaced on any lock path.
@@ -2270,7 +2276,7 @@ bool applyVtxRequestedChannel(uint8_t index) {
     const unsigned long now = millis();
     if (now - sLastRxDisabledLogMs >= 2000UL) {
       sLastRxDisabledLogMs = now;
-      Serial.println("VTX channel apply deferred: RX5808 disabled");
+      Serial.println("VTX channel apply deferred: RX5808 is disabled");
     }
     return false;
   }
@@ -2281,7 +2287,7 @@ bool applyVtxRequestedChannel(uint8_t index) {
   const RaceChannel &ch = kTimerChannels[index];
   // On every channel change we force a fresh calibration on the new channel,
   // but keep current lap history and statistics intact.
-  Serial.println("Channel changed -> preserving lap/best stats");
+  Serial.println("Channel changed: preserving lap/best stats");
 
   gTimerMode = MODE_SCAN;
   gVtxCalActive = true;
@@ -2290,7 +2296,7 @@ bool applyVtxRequestedChannel(uint8_t index) {
   // Leaving timing lock-info mode: redraw composed OSD with current requested channel.
   gLockInfoUntilMs = 0;
   gLastScanStepMs = 0;  // allow immediate first calibration sample
-  Serial.printf("Applying VTX channel -> %s (%u MHz), starting calibration (RSSI must be > %u)\n",
+  Serial.printf("Applying VTX channel: %s (%u MHz), starting calibration (RSSI must be > %u)\n",
                 ch.name, ch.freqMhz, gStrongSignalRssi);
   {
     char msg[24];
@@ -2306,13 +2312,13 @@ bool applyVtxRequestedChannel(uint8_t index) {
   }
   if (gChannelSelectSource == CHANNEL_SELECT_SOURCE_AUX && index < 8) {
     if (sendVtxAdminChannelToElrs(index)) {
-      Serial.printf("Sent VTX ADMIN channel update to goggles: %s (0x%02X)\n",
+      Serial.printf("Sent VTX Admin channel update to goggles: %s (0x%02X)\n",
                     ch.name, static_cast<unsigned>(channelIndexToVtxAdminCode(index)));
       gVtxAdminSyncPending = false;
     } else {
       gVtxAdminSyncPending = true;
       gVtxAdminSyncPendingIdx = index;
-      Serial.printf("VTX ADMIN sync pending for %s (template not ready yet)\n", ch.name);
+      Serial.printf("VTX Admin sync pending for %s (template not ready yet)\n", ch.name);
     }
   }
   return true;
@@ -2329,22 +2335,22 @@ void processScan(unsigned long now) {
     sAdminChannelWasAvailable = false;
     const bool armReady = isArmReadyForCalibration();
     const RaceChannel &ch = kTimerChannels[gVtxCalIndex];
-    setRX5808Frequency(ch.freqMhz);
+    ensureRx5808Frequency(ch.freqMhz);
     const uint8_t rssi = readAveragedRssi(6);
     gCurrentRssi = rssi;
     if (rssi > gBestScanRssi) {
       gBestScanRssi = rssi;
     }
-    if (kLogScanDetails) {
-      Serial.printf("VTX-CAL %s (%u MHz): RSSI=%u (start if > %u)\n", ch.name, ch.freqMhz, rssi, gStrongSignalRssi);
-    }
 
-    // Start lock only when signal is strictly above lock threshold and ARM is active.
-    if (rssi > gStrongSignalRssi && armReady) {
+    // Channel is already selected externally (AUX/ADMIN), so we only wait for ARM
+    // and lock immediately on this channel without RSSI-threshold gating.
+    if (armReady) {
       const uint8_t lockRssi = (gBestScanRssi > rssi) ? gBestScanRssi : rssi;
       Serial.printf("VTX-CAL LOCK on %s (%u MHz), RSSI=%u (peak=%u)\n",
                     ch.name, ch.freqMhz, rssi, lockRssi);
       lockToChannel(gVtxCalIndex, lockRssi);
+    } else if (kLogScanDetails) {
+      Serial.printf("VTX-CAL waiting ARM ON for %s (%u MHz), RSSI=%u\n", ch.name, ch.freqMhz, rssi);
     } else if (gLinkConnected && now - gLastOsdStatusMs >= kOsdStatusPeriodMs) {
       gLastOsdStatusMs = now;
       gOsdForceFullRefresh = true;
@@ -2360,7 +2366,7 @@ void processScan(unsigned long now) {
     const bool hasAdminChannel = tryGetAdminChannelIndex(forcedIdx);
     if (hasAdminChannel) {
       const RaceChannel &forced = kTimerChannels[forcedIdx];
-      setRX5808Frequency(forced.freqMhz);
+      ensureRx5808Frequency(forced.freqMhz);
       const uint8_t rssi = readAveragedRssi(6);
       gCurrentRssi = rssi;
       gBestScanRssi = rssi;
@@ -2421,13 +2427,13 @@ void processTiming(unsigned long now) {
   if (gArmSourceEnabled && gArmStateKnown) {
     if (!gArmActive) {
       if (gLastArmActive) {
-        Serial.printf("ARM OFF (AUX%u) -> timing paused\n", static_cast<unsigned>(gArmAuxNumber));
+        Serial.printf("ARM OFF (AUX%u): timing paused\n", static_cast<unsigned>(gArmAuxNumber));
         gLastDisarmMs = now;
         gLongDisarmLogged = false;
       }
       if (gLastDisarmMs > 0 && (now - gLastDisarmMs) >= gNewRaceAfterDisarmMs) {
         if (!gLongDisarmLogged) {
-          Serial.println("DISARM gap reached -> flushing lap logs to SD");
+          Serial.println("DISARM gap reached: flushing lap logs to SD");
           gLongDisarmLogged = true;
         }
         flushPendingLapLogsToSd();
@@ -2439,7 +2445,7 @@ void processTiming(unsigned long now) {
       return;
     }
     if (!gLastArmActive) {
-      Serial.printf("ARM ON (AUX%u) -> timing active\n", static_cast<unsigned>(gArmAuxNumber));
+      Serial.printf("ARM ON (AUX%u): timing active\n", static_cast<unsigned>(gArmAuxNumber));
       bool startNewRace = false;
       if (gCurrentRaceNo == 0) {
         startNewRace = true;
@@ -2452,7 +2458,7 @@ void processTiming(unsigned long now) {
         }
         gRaceCount++;
         gCurrentRaceNo = gRaceCount;
-        Serial.printf("NEW RACE #%lu (disarm gap rule: %lus)\n",
+        Serial.printf("New race #%lu (disarm gap rule: %lus)\n",
                       static_cast<unsigned long>(gCurrentRaceNo),
                       static_cast<unsigned long>(gNewRaceAfterDisarmMs / 1000UL));
         resetRaceLapStateForNewRace();
@@ -2506,28 +2512,16 @@ void processTiming(unsigned long now) {
 
   if (peakCaptured && gRssiPeak > 0) {
     if (!gRaceStarted) {
-      if (gLockAcquiredMs > 0 && now - gLockAcquiredMs < gPostLockArmDelayMs) {
-        Serial.printf("Gate ignored during post-lock arm delay (%lums/%lums)\n",
-                      static_cast<unsigned long>(now - gLockAcquiredMs),
-                      static_cast<unsigned long>(gPostLockArmDelayMs));
-        resetPeakCaptureState();
-        return;
-      }
-      if (!gThresholdsCalibrated) {
+      if (gRaceNeedsFirstGateCalibration) {
         if (!isArmReadyForCalibration()) {
           Serial.println("Gate ignored for calibration: waiting ARM ON");
           resetPeakCaptureState();
           return;
         }
-        if (gRssiPeak > gStrongSignalRssi) {
-          applyThresholdsFromReferenceRssi(gRssiPeak);
-          gThresholdsCalibrated = true;
-          Serial.printf("Calibrated from gate peak: peak=%u -> enter=%u exit=%u\n", gRssiPeak, gEnterRssi, gExitRssi);
-        } else {
-          Serial.printf("Gate ignored for calibration: peak=%u <= %u\n", gRssiPeak, gStrongSignalRssi);
-          resetPeakCaptureState();
-          return;
-        }
+        applyThresholdsFromReferenceRssi(gRssiPeak);
+        gRaceNeedsFirstGateCalibration = false;
+        Serial.printf("Race first-pass calibration: peak=%u -> enter=%u exit=%u\n",
+                      gRssiPeak, gEnterRssi, gExitRssi);
       }
       // First valid gate pass starts race timing from race-start reference.
       gRaceStarted = true;
@@ -2620,7 +2614,7 @@ void processTiming(unsigned long now) {
                         deltaSign, static_cast<unsigned long>(deltaSec), static_cast<unsigned long>(deltaCs));
         }
         if (isNewBestLap) {
-          Serial.println("New BEST lap -> popup blinking for 5s");
+          Serial.println("New BEST lap: popup blinking for 5s");
         }
         sendLockedStatusOsd();
       }
@@ -2639,7 +2633,7 @@ void processTiming(unsigned long now) {
 void setup() {
   Serial.begin(115200);
   delay(300);
-  Serial.println("Backpack + R scan + lap timer boot");
+  Serial.println("Boot: backpack + R-scan + lap timer");
   Serial.printf("Pins: RSSI=%d DATA=%d CLK=%d SEL=%d\n", kRssiInputPin, kRx5808DataPin, kRx5808ClkPin, kRx5808SelPin);
   Serial.printf("SD SPI pins: CS=%d SCK=%d MISO=%d MOSI=%d\n", kSdSpiCsPin, kSdSpiSckPin, kSdSpiMisoPin, kSdSpiMosiPin);
   Serial1.begin(kElrsBaud, SERIAL_8N1, kElrsRxPin, kElrsTxPin);
@@ -2647,11 +2641,10 @@ void setup() {
   setupSdLogging();
   applyUserSettings();
   runConfigSelfTest();
-  Serial.printf("Settings: OSD(%u,%u) popup(%u,%u) lock=%u enterOfs=%d exitOfs=%d cooldown=%lums armDelay=%lums exitConfirm=%u\n",
+  Serial.printf("Settings: OSD(%u,%u) popup(%u,%u) lock=%u enterOfs=%d exitOfs=%d cooldown=%lums exitConfirm=%u\n",
                 kCfgOsdMainRow, kCfgOsdMainCol, kCfgLapPopupRow, kCfgLapPopupCol,
                 gStrongSignalRssi, static_cast<int>(gEnterRssiOffset), static_cast<int>(gExitRssiOffset),
-                static_cast<unsigned long>(gMinLapIntervalMs), static_cast<unsigned long>(gPostLockArmDelayMs),
-                static_cast<unsigned>(gExitConfirmSamples));
+                static_cast<unsigned long>(gMinLapIntervalMs), static_cast<unsigned>(gExitConfirmSamples));
   Serial.printf("OSD elements: CH(%u,%u) RSSI(%u,%u) LPR(%u,%u) THU(%u,%u) THL(%u,%u) BEST(%u,%u) FR(%u,%u) B3(%u,%u) B3R(%u,%u) RACE_LAPS(%u,%u) POP(%u,%u)\n",
                 kCfgOsdChannelCol, kCfgOsdChannelRow, kCfgOsdRssiCol, kCfgOsdRssiRow,
                 kCfgOsdLapPeakRssiCol, kCfgOsdLapPeakRssiRow,
@@ -2687,15 +2680,15 @@ void setup() {
   setupEspNowWithBackpackUid();
   if (kCfgRx5808ModeSelect == 2) {
     gRx5808Enabled = false;
-    Serial.println("Auto-bind active (RX5808 FORCE OFF)");
+    Serial.println("Auto-bind active (RX5808 force off)");
   } else {
     setupRX5808();
     if (kCfgRx5808ModeSelect == 1) {
       gRx5808Enabled = true;
-      Serial.println("RX5808 mode: FORCE ON");
+      Serial.println("RX5808 mode: force on");
     } else {
       gRx5808Enabled = detectRx5808Presence();
-      Serial.printf("RX5808 mode: AUTO (%s)\n", gRx5808Enabled ? "ENABLED" : "DISABLED");
+      Serial.printf("RX5808 mode: auto (%s)\n", gRx5808Enabled ? "enabled" : "disabled");
     }
 
     if (gRx5808Enabled) {
@@ -2738,7 +2731,7 @@ void loop() {
 
   if (gLinkConnected && now - gLastLinkSeenMs > kLinkTimeoutMs) {
     gLinkConnected = false;
-    Serial.println("Link lost -> auto-bind restarted");
+    Serial.println("Link lost: auto-bind restarted");
   }
 
   if (gLinkConnected && !wasConnected) {
@@ -2755,7 +2748,7 @@ void loop() {
       uint8_t idx = 0;
       if (gChannelSelectSource == CHANNEL_SELECT_SOURCE_ADMIN &&
           tryGetAdminChannelIndex(idx)) {
-        Serial.printf("Link connected -> resume VTX ADMIN channel %s\n", kTimerChannels[idx].name);
+        Serial.printf("Link connected: resume VTX Admin channel %s\n", kTimerChannels[idx].name);
         if (!applyVtxRequestedChannel(idx)) {
           gVtxChannelPendingIdx = idx;
           gVtxChannelPending = true;
@@ -2763,14 +2756,14 @@ void loop() {
       } else if (gChannelSelectSource == CHANNEL_SELECT_SOURCE_AUX) {
         if (gLastAuxRequestedIdx >= 0 && gLastAuxRequestedIdx < 8) {
           const uint8_t auxIdx = static_cast<uint8_t>(gLastAuxRequestedIdx);
-          Serial.printf("Link connected -> reapply AUX%u mapped channel %s\n",
+          Serial.printf("Link connected: reapply AUX%u mapped channel %s\n",
                         static_cast<unsigned>(gAuxSelectNumber), kTimerChannels[auxIdx].name);
           if (!applyVtxRequestedChannel(auxIdx)) {
             gVtxChannelPendingIdx = auxIdx;
             gVtxChannelPending = true;
           }
         } else {
-          Serial.printf("Link connected -> waiting AUX%u range mapping\n", static_cast<unsigned>(gAuxSelectNumber));
+          Serial.printf("Link connected: waiting AUX%u range mapping\n", static_cast<unsigned>(gAuxSelectNumber));
         }
       }
     } else if (!gRx5808Enabled) {
