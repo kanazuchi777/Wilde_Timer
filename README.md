@@ -78,18 +78,19 @@ Behavior:
 ### 3. Scan -> Lock -> Timing
 
 - Scan reads RSSI on selected channel.
-- Lock requires `RSSI > lock_threshold_rssi` and ARM-ready state.
-- After lock:
-  - `enter/exit` thresholds are derived
-  - `post_lock_ignore_ms` is enforced
-- First valid gate pass only arms timing reference and is not counted as a lap.
+- Current channel selection is externally driven (AUX/ADMIN), so in VTX calibration flow lock happens as soon as ARM is ready.
+- `lock_threshold_rssi` is still used in scan-to-lock gating paths where RSSI gating is applied (for example ADMIN waiting flow).
+- After lock, thresholds are seeded from lock RSSI.
+- On each new race, first gate pass performs one-shot calibration from measured gate peak RSSI (`enter/exit` are recalculated once per race).
+- First valid gate pass starts timing reference and is not counted as a lap.
+- Both scan and timing RSSI loops run at ~`2 ms` period.
 
 ### 4. Lap detection
 
 Gate pass logic:
 
 - track RSSI peak above `enter`
-- lap closes only after RSSI drops below `exit` for `exit_confirm_below_samples`
+- lap closes only after RSSI drops below `exit` for 100 consecutive samples
 - enforce minimum interval (`min_lap_interval_ms`)
 - hide/ignore very long laps (`> kCfgCooldownMaxMs`, default 60000 ms)
 
@@ -218,8 +219,8 @@ Also supported:
 - `enter_offset_rssi`
 - `exit_offset_rssi`
 - `min_lap_interval_ms`
-- `post_lock_ignore_ms`
-- `exit_confirm_below_samples`
+- `post_lock_ignore_ms` (legacy key, currently not used by runtime logic)
+- `exit` confirmation is fixed to 100 consecutive below-threshold samples (not from config)
 
 ### RX5808, channel source, ARM
 
@@ -253,14 +254,13 @@ Defaults in current `main.cpp`:
 - `gOsdRaceLaps=[38,3,1]`
 - `gOsdLapPopup=[18,12,1]`
 - `lock_threshold_rssi=100`
-- `enter_offset_rssi=-15`
-- `exit_offset_rssi=-45`
+- `enter_offset_rssi=-25`
+- `exit_offset_rssi=-40`
 - `min_lap_interval_ms=8000`
 - `post_lock_ignore_ms=6000`
-- `exit_confirm_below_samples=4`
 - `rx5808_mode_select=0`
 - `sd_lap_logging_enabled=1`
-- `channel_select_source=ADMIN`
+- `channel_select_source=AUX7`
 - `aux_range_r1=1540-1560`
 - `aux_range_r2=1565-1620`
 - `aux_range_r3=1625-1660`
@@ -281,9 +281,12 @@ Auto-clamp ranges:
 - `lock_threshold_rssi`: `60..230`
 - `enter_offset_rssi`, `exit_offset_rssi`: `-60..60`
 - `min_lap_interval_ms`: `1000..60000`
-- `post_lock_ignore_ms`: `0..30000`
-- `exit_confirm_below_samples`: `1..20`
 - `new_race_after_disarm_ms`: `0..300000`
+
+Threshold output clamps (after calibration):
+
+- `enter`: `80..100`
+- `exit`: `60..75`
 
 ## Useful Serial Diagnostics
 

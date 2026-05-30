@@ -135,11 +135,10 @@ static int8_t kCfgEnterOffsetRssi = -25;                      // Enter offset fr
 static int8_t kCfgExitOffsetRssi = -40;                     // Exit offset from lock RSSI (e.g. -40)
 static unsigned long kCfgMinLapIntervalMs = 8000;    // Minimum time between laps
 static unsigned long kCfgPostLockIgnoreMs = 6000;   // Legacy config key (currently not used by runtime logic)
-static uint8_t kCfgExitConfirmBelowSamples = 4;             // Consecutive samples below exit required
 // RX5808 mode: 0=AUTO detect, 1=FORCE ON, 2=FORCE OFF
 static uint8_t kCfgRx5808ModeSelect = 0;
 static bool kCfgSdLapLoggingEnabled = true;                     // true=write valid laps to /LOGS/laps.csv on microSD
-static char kCfgChannelSelectSource[12] = "AUX7";              // "ADMIN" or "AUX7"
+static char kCfgChannelSelectSource[12] = "ADMIN";              // "ADMIN" or "AUX7"
 static uint16_t kCfgAuxRangeMinUs[8] = {1540, 1565, 1625, 1665, 1725, 1765, 1825, 1860};
 static uint16_t kCfgAuxRangeMaxUs[8] = {1560, 1620, 1660, 1720, 1760, 1820, 1860, 1920};
 static char kCfgArmSource[12] = "AUX1";                         // "NONE" or "AUX1"
@@ -162,14 +161,16 @@ static const int8_t kCfgOffsetMin = -60;
 static const int8_t kCfgOffsetMax = 60;
 static const unsigned long kCfgCooldownMinMs = 1000;
 static const unsigned long kCfgCooldownMaxMs = 60000;
-static const uint8_t kCfgExitConfirmMin = 1;
-static const uint8_t kCfgExitConfirmMax = 20;
+static const uint8_t kExitConfirmBelowSamples = 100;
 // =====================================================================
 
 static const unsigned long kScanStepMs = 2;
 // Timing mode RSSI sampling period. Lower value -> more frequent gate checks.
 static const unsigned long kRssiSamplePeriodMs = 2;
 static const unsigned long kRssiLogPeriodMs = 500;
+static const unsigned long kLpWindowMs = 5000;
+static const unsigned long kLpBucketMs = 100;
+static const uint8_t kLpBucketCount = static_cast<uint8_t>(kLpWindowMs / kLpBucketMs);
 static const bool kLogCrsfChannelChanges = false;
 static const bool kLogCrsfVtxPayload = false;
 static const bool kLogScanDetails = false;
@@ -180,6 +181,7 @@ static const unsigned long kCfgNewRaceAfterDisarmMaxMs = 300000;
 
 // ESP-NOW link maintenance
 static const size_t kMaxPayload = 80;
+static const uint8_t kEspNowDefaultWifiChannel = 1;
 static const unsigned long kBindIntervalMs = 500;
 static const unsigned long kProbeIntervalDisconnectedMs = 1000;
 static const unsigned long kProbeIntervalConnectedMs = 1500;
@@ -217,12 +219,14 @@ volatile bool gLinkConnected = false;
 volatile unsigned long gLastLinkSeenMs = 0;
 volatile bool gTxAwaiting = false;
 volatile unsigned long gTxStartedMs = 0;
+uint8_t gEspNowWifiChannel = kEspNowDefaultWifiChannel;
 
 TimerMode gTimerMode = MODE_SCAN;
 uint8_t gBestScanRssi = 0;
 unsigned long gLastScanStepMs = 0;
 bool gVtxCalActive = false;
 uint8_t gVtxCalIndex = 0;
+bool gVtxCalPeakArmed = false;
 bool gRaceNeedsFirstGateCalibration = true;
 
 uint8_t gLockedIndex = 0;
@@ -235,6 +239,8 @@ uint8_t gRssiPeak = 0;
 uint8_t gGateWindowPeakRssi = 0;
 uint32_t gRssiPeakTimeMs = 0;
 uint8_t gLastLapRssiPeak = 0;
+uint8_t gLpBucketMax[kLpBucketCount] = {};
+unsigned long gLpBucketStartMs[kLpBucketCount] = {};
 bool gRaceStarted = false;
 uint32_t gLastLapPeakMs = 0;
 uint32_t gRaceStartMs = 0;
@@ -278,7 +284,7 @@ uint8_t gStrongSignalRssi = 120;
 int8_t gEnterRssiOffset = 15;
 int8_t gExitRssiOffset = -15;
 unsigned long gMinLapIntervalMs = 10000;
-uint8_t gExitConfirmSamples = 4;
+uint8_t gExitConfirmSamples = kExitConfirmBelowSamples;
 bool gRx5808Enabled = false;
 bool gSdReady = false;
 bool gSdLoggingRuntimeDisabled = false;
@@ -428,8 +434,7 @@ void applyUserSettings() {
   gExitRssiOffset = static_cast<int8_t>(constrain(static_cast<int>(kCfgExitOffsetRssi), static_cast<int>(kCfgOffsetMin),
                                                    static_cast<int>(kCfgOffsetMax)));
   gMinLapIntervalMs = constrain(kCfgMinLapIntervalMs, kCfgCooldownMinMs, kCfgCooldownMaxMs);
-  gExitConfirmSamples =
-      static_cast<uint8_t>(constrain(kCfgExitConfirmBelowSamples, kCfgExitConfirmMin, kCfgExitConfirmMax));
+  gExitConfirmSamples = kExitConfirmBelowSamples;
 
   // Channel select source: ADMIN or AUX<n> (e.g. AUX7).
   gChannelSelectSource = CHANNEL_SELECT_SOURCE_ADMIN;
@@ -793,6 +798,15 @@ void onDataSent(
   (void)mac_addr;
 #endif
 
+  static unsigned long sLastSendFailLogMs = 0;
+  if (status != ESP_NOW_SEND_SUCCESS) {
+    const unsigned long now = millis();
+    if (now - sLastSendFailLogMs >= 2000UL) {
+      sLastSendFailLogMs = now;
+      Serial.println("ESP-NOW send callback: FAIL");
+    }
+  }
+
   // Any successful unicast telemetry/OSD packet proves the link is alive.
   // Exclude bind broadcast from link tracking.
   if (status == ESP_NOW_SEND_SUCCESS && gPendingTxKind != TXK_BIND_BROADCAST) {
@@ -909,7 +923,7 @@ void sendOsdMessageAt(uint8_t row, uint8_t col, const char *text) {
 }
 
 void sendOsdMessage(const char *text) {
-  sendOsdMessageAt(kCfgOsdMainRow, kCfgOsdMainCol, text);
+  sendOsdMessageAt(kCfgLapPopupRow, kCfgLapPopupCol, text);
 }
 
 void clearOsdElementsOnBoot() {
@@ -1000,7 +1014,6 @@ bool writeConfigToSd() {
   cfg.println("exit_offset_rssi=" + String(kCfgExitOffsetRssi));
   cfg.println("min_lap_interval_ms=" + String(kCfgMinLapIntervalMs));
   cfg.println("post_lock_ignore_ms=" + String(kCfgPostLockIgnoreMs));
-  cfg.println("exit_confirm_below_samples=" + String(kCfgExitConfirmBelowSamples));
   cfg.println("rx5808_mode_select=" + String(kCfgRx5808ModeSelect));
   cfg.println("sd_lap_logging_enabled=" + String(kCfgSdLapLoggingEnabled ? 1 : 0));
   cfg.println("channel_select_source=" + String(kCfgChannelSelectSource));
@@ -1046,7 +1059,6 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
   bool foundExitOffsetRssi = false;
   bool foundMinLapIntervalMs = false;
   bool foundPostLockIgnoreMs = false;
-  bool foundExitConfirmBelowSamples = false;
   bool foundRx5808ModeSelect = false;
   bool foundSdLapLoggingEnabled = false;
   bool foundChannelSelectSource = false;
@@ -1236,11 +1248,6 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
       if (parseUnsignedLongStrict(val, ul)) {
       kCfgPostLockIgnoreMs = ul;
       }
-    } else if (strcmp(key, "exit_confirm_below_samples") == 0) {
-      foundExitConfirmBelowSamples = true;
-      if (parseUnsignedLongStrict(val, ul)) {
-      kCfgExitConfirmBelowSamples = static_cast<uint8_t>(ul);
-      }
     } else if (strcmp(key, "rx5808_mode_select") == 0) {
       foundRx5808ModeSelect = true;
       if (parseUnsignedLongStrict(val, ul)) {
@@ -1347,7 +1354,7 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
                    !foundOsdRaceLaps ||
                    !foundOsdLapPopup ||
                    !foundLockThresholdRssi || !foundEnterOffsetRssi || !foundExitOffsetRssi || !foundMinLapIntervalMs ||
-                   !foundPostLockIgnoreMs || !foundExitConfirmBelowSamples ||
+                   !foundPostLockIgnoreMs ||
                    !foundRx5808ModeSelect || !foundSdLapLoggingEnabled || !foundChannelSelectSource ||
                    !foundArmSource || !foundArmActiveMinUs || !foundArmActiveMaxUs || !foundNewRaceAfterDisarmMs ||
                    missingOsdShowDuringRaceFlag ||
@@ -2017,7 +2024,9 @@ void setupEspNowWithBackpackUid() {
   // Avoid writing WiFi credentials/settings into NVS/flash.
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
-  WiFi.begin("network-name", "pass-to-network", 1);  // same channel approach as ELRS backpack
+  gEspNowWifiChannel = kEspNowDefaultWifiChannel;
+  Serial.printf("ESP-NOW fixed channel: CH%u\n", static_cast<unsigned>(gEspNowWifiChannel));
+  WiFi.begin("network-name", "pass-to-network", gEspNowWifiChannel);  // same channel approach as ELRS backpack
   WiFi.disconnect();
 
 #if defined(WIFI_PROTOCOL_LR) && defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -2036,6 +2045,7 @@ void setupEspNowWithBackpackUid() {
   localMac[0] &= 0xFE;
   memcpy(kResolvedUidMac, localMac, sizeof(kResolvedUidMac));
   esp_wifi_set_mac(WIFI_IF_STA, localMac);
+  esp_wifi_set_channel(gEspNowWifiChannel, WIFI_SECOND_CHAN_NONE);
 
   if (esp_now_init() != ESP_OK) {
     Serial.println("ESP-NOW init failed");
@@ -2214,6 +2224,32 @@ void resetPeakCaptureState() {
   gBelowExitStreak = 0;
 }
 
+void resetLpRollingPeakState() {
+  memset(gLpBucketMax, 0, sizeof(gLpBucketMax));
+  memset(gLpBucketStartMs, 0, sizeof(gLpBucketStartMs));
+  gLastLapRssiPeak = 0;
+}
+
+void updateLpRollingPeak(unsigned long now, uint8_t rssi) {
+  const unsigned long bucketStart = now - (now % kLpBucketMs);
+  const uint8_t bucketIdx = static_cast<uint8_t>((bucketStart / kLpBucketMs) % kLpBucketCount);
+  if (gLpBucketStartMs[bucketIdx] != bucketStart) {
+    gLpBucketStartMs[bucketIdx] = bucketStart;
+    gLpBucketMax[bucketIdx] = rssi;
+  } else if (rssi > gLpBucketMax[bucketIdx]) {
+    gLpBucketMax[bucketIdx] = rssi;
+  }
+
+  uint8_t windowMax = 0;
+  for (uint8_t i = 0; i < kLpBucketCount; ++i) {
+    const unsigned long age = now - gLpBucketStartMs[i];
+    if (age < kLpWindowMs && gLpBucketMax[i] > windowMax) {
+      windowMax = gLpBucketMax[i];
+    }
+  }
+  gLastLapRssiPeak = windowMax;
+}
+
 void resetRaceLapStateForNewRace() {
   // Start a fresh race while preserving session-level history/stats.
   gRaceNeedsFirstGateCalibration = true;
@@ -2222,7 +2258,7 @@ void resetRaceLapStateForNewRace() {
   gRaceStartMs = 0;
   gLapCount = 0;
   gLastLapMs = 0;
-  gLastLapRssiPeak = 0;
+  resetLpRollingPeakState();
   gLapPopupUntilMs = 0;
   gBestLapBlinkStartMs = 0;
   gBestLapRaceMs = 0;
@@ -2237,6 +2273,7 @@ void resetRaceLapStateForNewRace() {
 
 void lockToChannel(uint8_t index, uint8_t lockRssi) {
   gVtxCalActive = false;
+  gVtxCalPeakArmed = false;
   gLockedIndex = index;
   gBestScanRssi = lockRssi;
   gTimerMode = MODE_TIMING;
@@ -2246,7 +2283,7 @@ void lockToChannel(uint8_t index, uint8_t lockRssi) {
 
   resetPeakCaptureState();
   gRaceStarted = false;
-  gLastLapRssiPeak = 0;
+  resetLpRollingPeakState();
   gRaceStartMs = millis();
   gLockAcquiredMs = millis();
   gLastLapPeakMs = 0;
@@ -2292,19 +2329,17 @@ bool applyVtxRequestedChannel(uint8_t index) {
   gTimerMode = MODE_SCAN;
   gVtxCalActive = true;
   gVtxCalIndex = index;
+  gVtxCalPeakArmed = false;
   gBestScanRssi = 0;
   // Leaving timing lock-info mode: redraw composed OSD with current requested channel.
   gLockInfoUntilMs = 0;
   gLastScanStepMs = 0;  // allow immediate first calibration sample
   Serial.printf("Applying VTX channel: %s (%u MHz), starting calibration (RSSI must be > %u)\n",
                 ch.name, ch.freqMhz, gStrongSignalRssi);
-  {
-    char msg[24];
-    snprintf(msg, sizeof(msg), "CH %s CAL", ch.name);
-    sendOsdMessageIfChanged(msg);
-    sendLockedStatusOsd();
-  }
+  sendLockedStatusOsd();
+  bool vrxSynced = false;
   if (sendVrxChannelIndex(index)) {
+    vrxSynced = true;
     Serial.printf("Sent MSP_SET_VTX_CONFIG index=%u for %s\n",
                   static_cast<unsigned>(32U + index), ch.name);
   } else {
@@ -2321,7 +2356,9 @@ bool applyVtxRequestedChannel(uint8_t index) {
       Serial.printf("VTX Admin sync pending for %s (template not ready yet)\n", ch.name);
     }
   }
-  return true;
+  // Report apply success only when critical VRX sync packet was accepted by ESP-NOW.
+  // If false, caller keeps gVtxChannelPending=true and retries automatically.
+  return vrxSynced;
 }
 
 void processScan(unsigned long now) {
@@ -2335,20 +2372,38 @@ void processScan(unsigned long now) {
     sAdminChannelWasAvailable = false;
     const bool armReady = isArmReadyForCalibration();
     const RaceChannel &ch = kTimerChannels[gVtxCalIndex];
+    const uint8_t vtxCalExitRssi = static_cast<uint8_t>(
+        constrain(static_cast<int>(gStrongSignalRssi) + static_cast<int>(gExitRssiOffset), 0, 255));
     ensureRx5808Frequency(ch.freqMhz);
     const uint8_t rssi = readAveragedRssi(6);
     gCurrentRssi = rssi;
+    updateLpRollingPeak(now, rssi);
     if (rssi > gBestScanRssi) {
       gBestScanRssi = rssi;
     }
 
-    // Channel is already selected externally (AUX/ADMIN), so we only wait for ARM
-    // and lock immediately on this channel without RSSI-threshold gating.
+    // VTX calibration capture:
+    // 1) Arm peak capture when RSSI rises above lock threshold.
+    // 2) Keep highest peak.
+    // 3) Lock only after RSSI falls below dynamic exit threshold
+    //    (lock_threshold_rssi + exit_offset_rssi).
     if (armReady) {
-      const uint8_t lockRssi = (gBestScanRssi > rssi) ? gBestScanRssi : rssi;
-      Serial.printf("VTX-CAL LOCK on %s (%u MHz), RSSI=%u (peak=%u)\n",
-                    ch.name, ch.freqMhz, rssi, lockRssi);
-      lockToChannel(gVtxCalIndex, lockRssi);
+      if (!gVtxCalPeakArmed) {
+        if (rssi > gStrongSignalRssi) {
+          gVtxCalPeakArmed = true;
+          gBestScanRssi = rssi;
+          Serial.printf("VTX-CAL peak armed on %s (%u MHz): RSSI=%u > %u, waiting drop <= %u\n",
+                        ch.name, ch.freqMhz, rssi,
+                        static_cast<unsigned>(gStrongSignalRssi),
+                        static_cast<unsigned>(vtxCalExitRssi));
+        }
+      } else if (rssi <= vtxCalExitRssi) {
+        const uint8_t lockRssi = (gBestScanRssi > rssi) ? gBestScanRssi : rssi;
+        Serial.printf("VTX-CAL LOCK on %s (%u MHz), RSSI=%u (peak=%u, exit<=%u)\n",
+                      ch.name, ch.freqMhz, rssi, lockRssi,
+                      static_cast<unsigned>(vtxCalExitRssi));
+        lockToChannel(gVtxCalIndex, lockRssi);
+      }
     } else if (kLogScanDetails) {
       Serial.printf("VTX-CAL waiting ARM ON for %s (%u MHz), RSSI=%u\n", ch.name, ch.freqMhz, rssi);
     } else if (gLinkConnected && now - gLastOsdStatusMs >= kOsdStatusPeriodMs) {
@@ -2369,6 +2424,7 @@ void processScan(unsigned long now) {
       ensureRx5808Frequency(forced.freqMhz);
       const uint8_t rssi = readAveragedRssi(6);
       gCurrentRssi = rssi;
+      updateLpRollingPeak(now, rssi);
       gBestScanRssi = rssi;
       if (gLinkConnected) {
         char chMsg[42];
@@ -2419,6 +2475,7 @@ void processTiming(unsigned long now) {
 
   const uint8_t rssi = readAveragedRssi(1);
   gCurrentRssi = rssi;
+  updateLpRollingPeak(now, rssi);
   if (kLogTimingRssi && now - gLastRssiLogMs >= kRssiLogPeriodMs) {
     gLastRssiLogMs = now;
     Serial.printf("RSSI %s: %u (enter=%u exit=%u)\n", kTimerChannels[gLockedIndex].name, rssi, gEnterRssi, gExitRssi);
@@ -2492,29 +2549,21 @@ void processTiming(unsigned long now) {
     gBelowExitStreak = 0;
   }
 
-  // LP debug field must update on every completed gate window, even if lap is rejected.
-  // Gate window is considered complete once RSSI has been below T- for confirmation streak.
-  const bool gateWindowClosed = (gBelowExitStreak >= gExitConfirmSamples) && (gGateWindowPeakRssi > 0);
-  if (gateWindowClosed) {
-    uint8_t lpPeak = gGateWindowPeakRssi;
-    if (gRssiPeak > lpPeak) {
-      lpPeak = gRssiPeak;
-    }
-    const uint8_t prevLpPeak = gLastLapRssiPeak;
-    gLastLapRssiPeak = lpPeak;
-    gGateWindowPeakRssi = 0;
-    if (gLastLapRssiPeak != prevLpPeak) {
-      sendLockedStatusOsd();
-    }
-  }
-
-  const bool peakCaptured = (rssi < gRssiPeak) && (gBelowExitStreak >= gExitConfirmSamples);
+  const bool exitedGateConfirmed = (rssi <= gExitRssi) && (gBelowExitStreak >= gExitConfirmSamples);
+  const bool peakCaptured = (rssi < gRssiPeak) && exitedGateConfirmed;
 
   if (peakCaptured && gRssiPeak > 0) {
     if (!gRaceStarted) {
       if (gRaceNeedsFirstGateCalibration) {
         if (!isArmReadyForCalibration()) {
           Serial.println("Gate ignored for calibration: waiting ARM ON");
+          resetPeakCaptureState();
+          return;
+        }
+        if (gRssiPeak < gStrongSignalRssi) {
+          Serial.printf("Gate ignored for calibration: peak %u < min %u\n",
+                        static_cast<unsigned>(gRssiPeak),
+                        static_cast<unsigned>(gStrongSignalRssi));
           resetPeakCaptureState();
           return;
         }
@@ -2531,9 +2580,6 @@ void processTiming(unsigned long now) {
           firstLapRefMs = gLockAcquiredMs;
         }
         gLastLapPeakMs = (firstLapRefMs > 0) ? firstLapRefMs : gRssiPeakTimeMs;
-      }
-      if (gRssiPeak > gLastLapRssiPeak) {
-        gLastLapRssiPeak = gRssiPeak;
       }
     }
 
@@ -2619,6 +2665,9 @@ void processTiming(unsigned long now) {
         sendLockedStatusOsd();
       }
     } else {
+      // Keep lap reference synced to the latest confirmed gate peak so the next
+      // accepted lap does not accumulate time from race start or old peaks.
+      gLastLapPeakMs = gRssiPeakTimeMs;
       if (kLogLapRejects) {
         Serial.printf("Lap rejected (cooldown): %lums < %lums\n", static_cast<unsigned long>(timeSinceLastLap),
                       static_cast<unsigned long>(gMinLapIntervalMs));
