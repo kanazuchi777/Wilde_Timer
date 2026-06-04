@@ -91,66 +91,66 @@ static const RaceChannel kTimerChannels[kTimerChannelCount] = {
 // Scan/lap settings
 // ============================ USER SETTINGS ============================
 // Edit only this block for day-to-day tuning.
-static uint8_t kCfgOsdMainRow = 17;                       // OSD row position
-static uint8_t kCfgOsdMainCol = 13;                       // OSD column position
-static uint8_t kCfgLapPopupRow = 12;                  // LAST lap popup row position
-static uint8_t kCfgLapPopupCol = 18;                  // LAST lap popup column position
+static uint8_t gCfgOsdMainRow = 17;                       // OSD row position
+static uint8_t gCfgOsdMainCol = 13;                       // OSD column position
+static uint8_t gCfgLapPopupRow = 12;                  // LAST lap popup row position
+static uint8_t gCfgLapPopupCol = 20;                  // LAST lap popup column position
 static constexpr uint8_t kOsdWaitVtxAdminRow = 13;
 static constexpr uint8_t kOsdWaitVtxAdminCol = 17;
-static uint8_t kCfgOsdChannelRow = 17;
-static uint8_t kCfgOsdChannelCol = 10;
-static bool kCfgOsdChannelShowDuringRace = true;
-static uint8_t kCfgOsdRssiRow = 16;
-static uint8_t kCfgOsdRssiCol = 12;
-static bool kCfgOsdRssiShowDuringRace = true;
+static uint8_t gCfgOsdChannelRow = 16;
+static uint8_t gCfgOsdChannelCol = 9;
+static bool gCfgOsdChannelShowDuringRace = true;
+static uint8_t gCfgOsdRssiRow = 16;
+static uint8_t gCfgOsdRssiCol = 12;
+static bool gCfgOsdRssiShowDuringRace = true;
 // Last lap gate-peak RSSI shown right after current RSSI by default.
-static uint8_t kCfgOsdLapPeakRssiRow = 16;
-static uint8_t kCfgOsdLapPeakRssiCol = 18;
-static bool kCfgOsdLapPeakRssiShowDuringRace = true;
+static uint8_t gCfgOsdLapPeakRssiRow = 16;
+static uint8_t gCfgOsdLapPeakRssiCol = 18;
+static bool gCfgOsdLapPeakRssiShowDuringRace = true;
 // Upper/lower RSSI thresholds (ENTER/EXIT) shown after current + lap-peak RSSI by default.
-static uint8_t kCfgOsdRssiThrUpperRow = 16;
-static uint8_t kCfgOsdRssiThrUpperCol = 25;
-static bool kCfgOsdRssiThrUpperShowDuringRace = true;
-static uint8_t kCfgOsdRssiThrLowerRow = 16;
-static uint8_t kCfgOsdRssiThrLowerCol = 32;
-static bool kCfgOsdRssiThrLowerShowDuringRace = true;
-static uint8_t kCfgOsdBestLapRow = 17;
-static uint8_t kCfgOsdBestLapCol = 13;
-static bool kCfgOsdBestLapShowDuringRace = true;
-static uint8_t kCfgOsdBestLapRaceRow = 17;
-static uint8_t kCfgOsdBestLapRaceCol = 22;
-static bool kCfgOsdBestLapRaceShowDuringRace = true;
-static uint8_t kCfgOsdBest3Row = 17;
-static uint8_t kCfgOsdBest3Col = 31;
-static bool kCfgOsdBest3ShowDuringRace = true;
-static uint8_t kCfgOsdBest3RaceRow = 2;
-static uint8_t kCfgOsdBest3RaceCol = 38;
-static bool kCfgOsdBest3RaceShowDuringRace = true;
-static uint8_t kCfgOsdRaceLapsRow = 3;
-static uint8_t kCfgOsdRaceLapsCol = 38;
-static bool kCfgOsdRaceLapsShowDuringRace = true;
-static bool kCfgLapPopupShowDuringRace = true;
-static uint8_t kCfgLockThresholdRssi = 100;                     // RSSI lock threshold for scan-to-lock gating paths
-static int8_t kCfgEnterOffsetRssi = -25;                      // Enter offset from lock RSSI (e.g. -25)
-static int8_t kCfgExitOffsetRssi = -40;                     // Exit offset from lock RSSI (e.g. -40)
-static unsigned long kCfgMinLapIntervalMs = 8000;    // Minimum time between laps
-static unsigned long kCfgPostLockIgnoreMs = 6000;   // Legacy config key (currently not used by runtime logic)
+static uint8_t gCfgOsdRssiThrUpperRow = 16;
+static uint8_t gCfgOsdRssiThrUpperCol = 25;
+static bool gCfgOsdRssiThrUpperShowDuringRace = true;
+static uint8_t gCfgOsdRssiThrLowerRow = 16;
+static uint8_t gCfgOsdRssiThrLowerCol = 32;
+static bool gCfgOsdRssiThrLowerShowDuringRace = true;
+static uint8_t gCfgOsdBestLapRow = 17;
+static uint8_t gCfgOsdBestLapCol = 9;
+static bool gCfgOsdBestLapShowDuringRace = true;
+static uint8_t gCfgOsdBestLapRaceRow = 17;
+static uint8_t gCfgOsdBestLapRaceCol = 21;
+static bool gCfgOsdBestLapRaceShowDuringRace = true;
+static uint8_t gCfgOsdBest3Row = 17;
+static uint8_t gCfgOsdBest3Col = 33;
+static bool gCfgOsdBest3ShowDuringRace = true;
+static uint8_t gCfgOsdBest3RaceRow = 0;
+static uint8_t gCfgOsdBest3RaceCol = 42;
+static bool gCfgOsdBest3RaceShowDuringRace = true;
+static uint8_t gCfgOsdRaceLapsRow = 1;
+static uint8_t gCfgOsdRaceLapsCol = 42;
+static bool gCfgOsdRaceLapsShowDuringRace = true;
+static bool gCfgLapPopupShowDuringRace = true;
+static uint8_t gCfgLockThresholdRssi = 100;                     // RSSI lock threshold for scan-to-lock gating paths
+static int8_t gCfgEnterOffsetRssi = -25;                      // Enter offset from lock RSSI (e.g. -25)
+static int8_t gCfgExitOffsetRssi = -40;                     // Exit offset from lock RSSI (e.g. -40)
+static unsigned long gCfgMinLapIntervalMs = 8000;    // Minimum time between laps
+static unsigned long gCfgPostLockIgnoreMs = 6000;   // Legacy config key (currently not used by runtime logic)
 // RX5808 mode: 0=AUTO detect, 1=FORCE ON, 2=FORCE OFF
-static uint8_t kCfgRx5808ModeSelect = 0;
-static bool kCfgSdLapLoggingEnabled = true;                     // true=write valid laps to /LOGS/laps.csv on microSD
-static char kCfgChannelSelectSource[12] = "ADMIN";              // "ADMIN" or "AUX7"
-static uint16_t kCfgAuxRangeMinUs[8] = {1540, 1565, 1625, 1665, 1725, 1765, 1825, 1860};
-static uint16_t kCfgAuxRangeMaxUs[8] = {1560, 1620, 1660, 1720, 1760, 1820, 1860, 1920};
-static char kCfgArmSource[12] = "AUX1";                         // "NONE" or "AUX1"
-static uint16_t kCfgArmActiveMinUs = 1700;                      // ARM active range min (us)
-static uint16_t kCfgArmActiveMaxUs = 2100;                      // ARM active range max (us)
-static unsigned long kCfgNewRaceAfterDisarmMs = 10000;          // Start new race on ARM only if disarmed >= this long
+static uint8_t gCfgRx5808ModeSelect = 0;
+static bool gCfgSdLapLoggingEnabled = true;                     // true=write valid laps to /LOGS/laps.csv on microSD
+static char gCfgChannelSelectSource[12] = "AUX7";              // "ADMIN" or "AUX7"
+static uint16_t gCfgAuxRangeMinUs[8] = {1540, 1565, 1625, 1665, 1725, 1765, 1825, 1860};
+static uint16_t gCfgAuxRangeMaxUs[8] = {1560, 1620, 1660, 1720, 1760, 1820, 1860, 1920};
+static char gCfgArmSource[12] = "AUX1";                         // "NONE" or "AUX1"
+static uint16_t gCfgArmActiveMinUs = 1700;                      // ARM active range min (us)
+static uint16_t gCfgArmActiveMaxUs = 2100;                      // ARM active range max (us)
+static unsigned long gCfgNewRaceAfterDisarmMs = 10000;          // Start new race on ARM only if disarmed >= this long
 
 // Limits (values are clamped automatically if out of range).
-static const uint8_t kCfgOsdMainRowMin = 0;
-static const uint8_t kCfgOsdMainRowMax = 17;
-static const uint8_t kCfgOsdMainColMin = 0;
-static const uint8_t kCfgOsdMainColMax = 50;
+static const uint8_t kOsdRowMin = 0;
+static const uint8_t kOsdRowMax = 17;
+static const uint8_t kOsdColMin = 0;
+static const uint8_t kOsdColMax = 50;
 static const uint8_t kCfgThresholdMin = 60;
 static const uint8_t kCfgThresholdMax = 230;
 static const uint8_t kEnterThresholdMin = 80;
@@ -176,8 +176,8 @@ static const bool kLogCrsfVtxPayload = false;
 static const bool kLogScanDetails = false;
 static const bool kLogTimingRssi = false;
 static const bool kLogLapRejects = false;
-static const unsigned long kCfgNewRaceAfterDisarmMinMs = 0;
-static const unsigned long kCfgNewRaceAfterDisarmMaxMs = 300000;
+static const unsigned long kNewRaceAfterDisarmMinMs = 0;
+static const unsigned long kNewRaceAfterDisarmMaxMs = 300000;
 
 // ESP-NOW link maintenance
 static const size_t kMaxPayload = 80;
@@ -236,7 +236,6 @@ uint8_t gExitRssi = 120;
 uint8_t gBelowExitStreak = 0;
 
 uint8_t gRssiPeak = 0;
-uint8_t gGateWindowPeakRssi = 0;
 uint32_t gRssiPeakTimeMs = 0;
 uint8_t gLastLapRssiPeak = 0;
 uint8_t gLpBucketMax[kLpBucketCount] = {};
@@ -404,36 +403,36 @@ bool tryExtractVtxAdminRaceChannelCode(const uint8_t *payload, uint8_t payloadLe
 }
 
 void applyUserSettings() {
-  kCfgOsdMainRow = static_cast<uint8_t>(constrain(kCfgOsdMainRow, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdMainCol = static_cast<uint8_t>(constrain(kCfgOsdMainCol, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgLapPopupRow = static_cast<uint8_t>(constrain(kCfgLapPopupRow, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgLapPopupCol = static_cast<uint8_t>(constrain(kCfgLapPopupCol, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgOsdChannelRow = static_cast<uint8_t>(constrain(kCfgOsdChannelRow, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdChannelCol = static_cast<uint8_t>(constrain(kCfgOsdChannelCol, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgOsdRssiRow = static_cast<uint8_t>(constrain(kCfgOsdRssiRow, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdRssiCol = static_cast<uint8_t>(constrain(kCfgOsdRssiCol, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgOsdLapPeakRssiRow = static_cast<uint8_t>(constrain(kCfgOsdLapPeakRssiRow, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdLapPeakRssiCol = static_cast<uint8_t>(constrain(kCfgOsdLapPeakRssiCol, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgOsdRssiThrUpperRow = static_cast<uint8_t>(constrain(kCfgOsdRssiThrUpperRow, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdRssiThrUpperCol = static_cast<uint8_t>(constrain(kCfgOsdRssiThrUpperCol, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgOsdRssiThrLowerRow = static_cast<uint8_t>(constrain(kCfgOsdRssiThrLowerRow, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdRssiThrLowerCol = static_cast<uint8_t>(constrain(kCfgOsdRssiThrLowerCol, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgOsdBestLapRow = static_cast<uint8_t>(constrain(kCfgOsdBestLapRow, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdBestLapCol = static_cast<uint8_t>(constrain(kCfgOsdBestLapCol, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgOsdBestLapRaceRow = static_cast<uint8_t>(constrain(kCfgOsdBestLapRaceRow, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdBestLapRaceCol = static_cast<uint8_t>(constrain(kCfgOsdBestLapRaceCol, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgOsdBest3Row = static_cast<uint8_t>(constrain(kCfgOsdBest3Row, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdBest3Col = static_cast<uint8_t>(constrain(kCfgOsdBest3Col, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgOsdBest3RaceRow = static_cast<uint8_t>(constrain(kCfgOsdBest3RaceRow, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdBest3RaceCol = static_cast<uint8_t>(constrain(kCfgOsdBest3RaceCol, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  kCfgOsdRaceLapsRow = static_cast<uint8_t>(constrain(kCfgOsdRaceLapsRow, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-  kCfgOsdRaceLapsCol = static_cast<uint8_t>(constrain(kCfgOsdRaceLapsCol, kCfgOsdMainColMin, kCfgOsdMainColMax));
-  gStrongSignalRssi = static_cast<uint8_t>(constrain(kCfgLockThresholdRssi, kCfgThresholdMin, kCfgThresholdMax));
-  gEnterRssiOffset = static_cast<int8_t>(constrain(static_cast<int>(kCfgEnterOffsetRssi), static_cast<int>(kCfgOffsetMin),
+  gCfgOsdMainRow = static_cast<uint8_t>(constrain(gCfgOsdMainRow, kOsdRowMin, kOsdRowMax));
+  gCfgOsdMainCol = static_cast<uint8_t>(constrain(gCfgOsdMainCol, kOsdColMin, kOsdColMax));
+  gCfgLapPopupRow = static_cast<uint8_t>(constrain(gCfgLapPopupRow, kOsdRowMin, kOsdRowMax));
+  gCfgLapPopupCol = static_cast<uint8_t>(constrain(gCfgLapPopupCol, kOsdColMin, kOsdColMax));
+  gCfgOsdChannelRow = static_cast<uint8_t>(constrain(gCfgOsdChannelRow, kOsdRowMin, kOsdRowMax));
+  gCfgOsdChannelCol = static_cast<uint8_t>(constrain(gCfgOsdChannelCol, kOsdColMin, kOsdColMax));
+  gCfgOsdRssiRow = static_cast<uint8_t>(constrain(gCfgOsdRssiRow, kOsdRowMin, kOsdRowMax));
+  gCfgOsdRssiCol = static_cast<uint8_t>(constrain(gCfgOsdRssiCol, kOsdColMin, kOsdColMax));
+  gCfgOsdLapPeakRssiRow = static_cast<uint8_t>(constrain(gCfgOsdLapPeakRssiRow, kOsdRowMin, kOsdRowMax));
+  gCfgOsdLapPeakRssiCol = static_cast<uint8_t>(constrain(gCfgOsdLapPeakRssiCol, kOsdColMin, kOsdColMax));
+  gCfgOsdRssiThrUpperRow = static_cast<uint8_t>(constrain(gCfgOsdRssiThrUpperRow, kOsdRowMin, kOsdRowMax));
+  gCfgOsdRssiThrUpperCol = static_cast<uint8_t>(constrain(gCfgOsdRssiThrUpperCol, kOsdColMin, kOsdColMax));
+  gCfgOsdRssiThrLowerRow = static_cast<uint8_t>(constrain(gCfgOsdRssiThrLowerRow, kOsdRowMin, kOsdRowMax));
+  gCfgOsdRssiThrLowerCol = static_cast<uint8_t>(constrain(gCfgOsdRssiThrLowerCol, kOsdColMin, kOsdColMax));
+  gCfgOsdBestLapRow = static_cast<uint8_t>(constrain(gCfgOsdBestLapRow, kOsdRowMin, kOsdRowMax));
+  gCfgOsdBestLapCol = static_cast<uint8_t>(constrain(gCfgOsdBestLapCol, kOsdColMin, kOsdColMax));
+  gCfgOsdBestLapRaceRow = static_cast<uint8_t>(constrain(gCfgOsdBestLapRaceRow, kOsdRowMin, kOsdRowMax));
+  gCfgOsdBestLapRaceCol = static_cast<uint8_t>(constrain(gCfgOsdBestLapRaceCol, kOsdColMin, kOsdColMax));
+  gCfgOsdBest3Row = static_cast<uint8_t>(constrain(gCfgOsdBest3Row, kOsdRowMin, kOsdRowMax));
+  gCfgOsdBest3Col = static_cast<uint8_t>(constrain(gCfgOsdBest3Col, kOsdColMin, kOsdColMax));
+  gCfgOsdBest3RaceRow = static_cast<uint8_t>(constrain(gCfgOsdBest3RaceRow, kOsdRowMin, kOsdRowMax));
+  gCfgOsdBest3RaceCol = static_cast<uint8_t>(constrain(gCfgOsdBest3RaceCol, kOsdColMin, kOsdColMax));
+  gCfgOsdRaceLapsRow = static_cast<uint8_t>(constrain(gCfgOsdRaceLapsRow, kOsdRowMin, kOsdRowMax));
+  gCfgOsdRaceLapsCol = static_cast<uint8_t>(constrain(gCfgOsdRaceLapsCol, kOsdColMin, kOsdColMax));
+  gStrongSignalRssi = static_cast<uint8_t>(constrain(gCfgLockThresholdRssi, kCfgThresholdMin, kCfgThresholdMax));
+  gEnterRssiOffset = static_cast<int8_t>(constrain(static_cast<int>(gCfgEnterOffsetRssi), static_cast<int>(kCfgOffsetMin),
                                                     static_cast<int>(kCfgOffsetMax)));
-  gExitRssiOffset = static_cast<int8_t>(constrain(static_cast<int>(kCfgExitOffsetRssi), static_cast<int>(kCfgOffsetMin),
+  gExitRssiOffset = static_cast<int8_t>(constrain(static_cast<int>(gCfgExitOffsetRssi), static_cast<int>(kCfgOffsetMin),
                                                    static_cast<int>(kCfgOffsetMax)));
-  gMinLapIntervalMs = constrain(kCfgMinLapIntervalMs, kCfgCooldownMinMs, kCfgCooldownMaxMs);
+  gMinLapIntervalMs = constrain(gCfgMinLapIntervalMs, kCfgCooldownMinMs, kCfgCooldownMaxMs);
   gExitConfirmSamples = kExitConfirmBelowSamples;
 
   // Channel select source: ADMIN or AUX<n> (e.g. AUX7).
@@ -442,7 +441,7 @@ void applyUserSettings() {
   gAuxSelectCrsfIndex = static_cast<uint8_t>(kAuxFirstChannelIdx + 6);  // AUX7 -> CH11 index
   {
     char srcBuf[12] = {};
-    snprintf(srcBuf, sizeof(srcBuf), "%s", kCfgChannelSelectSource);
+    snprintf(srcBuf, sizeof(srcBuf), "%s", gCfgChannelSelectSource);
     for (size_t i = 0; srcBuf[i] != '\0'; ++i) {
       srcBuf[i] = static_cast<char>(std::toupper(static_cast<unsigned char>(srcBuf[i])));
     }
@@ -460,8 +459,8 @@ void applyUserSettings() {
   }
 
   for (uint8_t i = 0; i < 8; ++i) {
-    uint16_t lo = static_cast<uint16_t>(constrain(static_cast<int>(kCfgAuxRangeMinUs[i]), 800, 2200));
-    uint16_t hi = static_cast<uint16_t>(constrain(static_cast<int>(kCfgAuxRangeMaxUs[i]), 800, 2200));
+    uint16_t lo = static_cast<uint16_t>(constrain(static_cast<int>(gCfgAuxRangeMinUs[i]), 800, 2200));
+    uint16_t hi = static_cast<uint16_t>(constrain(static_cast<int>(gCfgAuxRangeMaxUs[i]), 800, 2200));
     if (hi < lo) {
       const uint16_t tmp = lo;
       lo = hi;
@@ -482,7 +481,7 @@ void applyUserSettings() {
   gArmAuxCrsfIndex = static_cast<uint8_t>(kAuxFirstChannelIdx + 4);  // AUX5 -> CH9 index
   {
     char armBuf[12] = {};
-    snprintf(armBuf, sizeof(armBuf), "%s", kCfgArmSource);
+    snprintf(armBuf, sizeof(armBuf), "%s", gCfgArmSource);
     for (size_t i = 0; armBuf[i] != '\0'; ++i) {
       armBuf[i] = static_cast<char>(std::toupper(static_cast<unsigned char>(armBuf[i])));
     }
@@ -497,10 +496,10 @@ void applyUserSettings() {
     }
   }
 
-  gArmActiveMinUs = static_cast<uint16_t>(constrain(static_cast<int>(kCfgArmActiveMinUs), 800, 2200));
-  gArmActiveMaxUs = static_cast<uint16_t>(constrain(static_cast<int>(kCfgArmActiveMaxUs), 800, 2200));
+  gArmActiveMinUs = static_cast<uint16_t>(constrain(static_cast<int>(gCfgArmActiveMinUs), 800, 2200));
+  gArmActiveMaxUs = static_cast<uint16_t>(constrain(static_cast<int>(gCfgArmActiveMaxUs), 800, 2200));
   gNewRaceAfterDisarmMs =
-      constrain(kCfgNewRaceAfterDisarmMs, kCfgNewRaceAfterDisarmMinMs, kCfgNewRaceAfterDisarmMaxMs);
+      constrain(gCfgNewRaceAfterDisarmMs, kNewRaceAfterDisarmMinMs, kNewRaceAfterDisarmMaxMs);
   if (gArmActiveMaxUs < gArmActiveMinUs) {
     const uint16_t tmp = gArmActiveMinUs;
     gArmActiveMinUs = gArmActiveMaxUs;
@@ -923,51 +922,51 @@ void sendOsdMessageAt(uint8_t row, uint8_t col, const char *text) {
 }
 
 void sendOsdMessage(const char *text) {
-  sendOsdMessageAt(kCfgLapPopupRow, kCfgLapPopupCol, text);
+  sendOsdMessageAt(gCfgLapPopupRow, gCfgLapPopupCol, text);
 }
 
 void clearOsdElementsOnBoot() {
   static const char *kBlank = "                ";
-  if (!(kCfgOsdMainCol == 0 && kCfgOsdMainRow == 0)) {
-    sendOsdText(kCfgOsdMainRow, kCfgOsdMainCol, kBlank);
+  if (!(gCfgOsdMainCol == 0 && gCfgOsdMainRow == 0)) {
+    sendOsdText(gCfgOsdMainRow, gCfgOsdMainCol, kBlank);
   }
-  if (!(kCfgOsdChannelCol == 0 && kCfgOsdChannelRow == 0)) {
-    sendOsdText(kCfgOsdChannelRow, kCfgOsdChannelCol, kBlank);
+  if (!(gCfgOsdChannelCol == 0 && gCfgOsdChannelRow == 0)) {
+    sendOsdText(gCfgOsdChannelRow, gCfgOsdChannelCol, kBlank);
   }
-  if (!(kCfgOsdRssiCol == 0 && kCfgOsdRssiRow == 0)) {
-    sendOsdText(kCfgOsdRssiRow, kCfgOsdRssiCol, kBlank);
+  if (!(gCfgOsdRssiCol == 0 && gCfgOsdRssiRow == 0)) {
+    sendOsdText(gCfgOsdRssiRow, gCfgOsdRssiCol, kBlank);
   }
-  if (!(kCfgOsdLapPeakRssiCol == 0 && kCfgOsdLapPeakRssiRow == 0)) {
-    sendOsdText(kCfgOsdLapPeakRssiRow, kCfgOsdLapPeakRssiCol, kBlank);
+  if (!(gCfgOsdLapPeakRssiCol == 0 && gCfgOsdLapPeakRssiRow == 0)) {
+    sendOsdText(gCfgOsdLapPeakRssiRow, gCfgOsdLapPeakRssiCol, kBlank);
   }
-  if (!(kCfgOsdRssiThrUpperCol == 0 && kCfgOsdRssiThrUpperRow == 0)) {
-    sendOsdText(kCfgOsdRssiThrUpperRow, kCfgOsdRssiThrUpperCol, kBlank);
+  if (!(gCfgOsdRssiThrUpperCol == 0 && gCfgOsdRssiThrUpperRow == 0)) {
+    sendOsdText(gCfgOsdRssiThrUpperRow, gCfgOsdRssiThrUpperCol, kBlank);
   }
-  if (!(kCfgOsdRssiThrLowerCol == 0 && kCfgOsdRssiThrLowerRow == 0)) {
-    sendOsdText(kCfgOsdRssiThrLowerRow, kCfgOsdRssiThrLowerCol, kBlank);
+  if (!(gCfgOsdRssiThrLowerCol == 0 && gCfgOsdRssiThrLowerRow == 0)) {
+    sendOsdText(gCfgOsdRssiThrLowerRow, gCfgOsdRssiThrLowerCol, kBlank);
   }
-  if (!(kCfgOsdBestLapCol == 0 && kCfgOsdBestLapRow == 0)) {
-    sendOsdText(kCfgOsdBestLapRow, kCfgOsdBestLapCol, kBlank);
+  if (!(gCfgOsdBestLapCol == 0 && gCfgOsdBestLapRow == 0)) {
+    sendOsdText(gCfgOsdBestLapRow, gCfgOsdBestLapCol, kBlank);
   }
-  if (!(kCfgOsdBestLapRaceCol == 0 && kCfgOsdBestLapRaceRow == 0)) {
-    sendOsdText(kCfgOsdBestLapRaceRow, kCfgOsdBestLapRaceCol, kBlank);
+  if (!(gCfgOsdBestLapRaceCol == 0 && gCfgOsdBestLapRaceRow == 0)) {
+    sendOsdText(gCfgOsdBestLapRaceRow, gCfgOsdBestLapRaceCol, kBlank);
   }
-  if (!(kCfgOsdBest3Col == 0 && kCfgOsdBest3Row == 0)) {
-    sendOsdText(kCfgOsdBest3Row, kCfgOsdBest3Col, kBlank);
+  if (!(gCfgOsdBest3Col == 0 && gCfgOsdBest3Row == 0)) {
+    sendOsdText(gCfgOsdBest3Row, gCfgOsdBest3Col, kBlank);
   }
-  if (!(kCfgOsdBest3RaceCol == 0 && kCfgOsdBest3RaceRow == 0)) {
-    sendOsdText(kCfgOsdBest3RaceRow, kCfgOsdBest3RaceCol, kBlank);
+  if (!(gCfgOsdBest3RaceCol == 0 && gCfgOsdBest3RaceRow == 0)) {
+    sendOsdText(gCfgOsdBest3RaceRow, gCfgOsdBest3RaceCol, kBlank);
   }
-  if (!(kCfgOsdRaceLapsCol == 0 && kCfgOsdRaceLapsRow == 0)) {
-    for (uint8_t row = kCfgOsdRaceLapsRow; row <= kCfgOsdMainRowMax; ++row) {
-      sendOsdText(row, kCfgOsdRaceLapsCol, kBlank);
-      if (row == kCfgOsdMainRowMax) {
+  if (!(gCfgOsdRaceLapsCol == 0 && gCfgOsdRaceLapsRow == 0)) {
+    for (uint8_t row = gCfgOsdRaceLapsRow; row <= kOsdRowMax; ++row) {
+      sendOsdText(row, gCfgOsdRaceLapsCol, kBlank);
+      if (row == kOsdRowMax) {
         break;
       }
     }
   }
-  if (!(kCfgLapPopupCol == 0 && kCfgLapPopupRow == 0)) {
-    sendOsdText(kCfgLapPopupRow, kCfgLapPopupCol, kBlank);
+  if (!(gCfgLapPopupCol == 0 && gCfgLapPopupRow == 0)) {
+    sendOsdText(gCfgLapPopupRow, gCfgLapPopupCol, kBlank);
   }
   sendOsdText(kOsdWaitVtxAdminRow, kOsdWaitVtxAdminCol, kBlank);
   sendOsdDisplay();
@@ -985,45 +984,45 @@ bool writeConfigToSd() {
   }
 
   cfg.println("# Wilde Timer config");
-  cfg.println("osd_main_row=" + String(kCfgOsdMainRow));
-  cfg.println("osd_main_col=" + String(kCfgOsdMainCol));
-  cfg.println("gOsdChannel=[" + String(kCfgOsdChannelCol) + "," + String(kCfgOsdChannelRow) + "," +
-              String(kCfgOsdChannelShowDuringRace ? 1 : 0) + "]");
-  cfg.println("gOsdRssi=[" + String(kCfgOsdRssiCol) + "," + String(kCfgOsdRssiRow) + "," +
-              String(kCfgOsdRssiShowDuringRace ? 1 : 0) + "]");
-  cfg.println("gOsdLapPeakRssi=[" + String(kCfgOsdLapPeakRssiCol) + "," + String(kCfgOsdLapPeakRssiRow) + "," +
-              String(kCfgOsdLapPeakRssiShowDuringRace ? 1 : 0) + "]");
-  cfg.println("gOsdRssiThrUpper=[" + String(kCfgOsdRssiThrUpperCol) + "," + String(kCfgOsdRssiThrUpperRow) + "," +
-              String(kCfgOsdRssiThrUpperShowDuringRace ? 1 : 0) + "]");
-  cfg.println("gOsdRssiThrLower=[" + String(kCfgOsdRssiThrLowerCol) + "," + String(kCfgOsdRssiThrLowerRow) + "," +
-              String(kCfgOsdRssiThrLowerShowDuringRace ? 1 : 0) + "]");
-  cfg.println("gOsdBestLap=[" + String(kCfgOsdBestLapCol) + "," + String(kCfgOsdBestLapRow) + "," +
-              String(kCfgOsdBestLapShowDuringRace ? 1 : 0) + "]");
-  cfg.println("gOsdBestLap_race=[" + String(kCfgOsdBestLapRaceCol) + "," + String(kCfgOsdBestLapRaceRow) + "," +
-              String(kCfgOsdBestLapRaceShowDuringRace ? 1 : 0) + "]");
-  cfg.println("gOsdBest3=[" + String(kCfgOsdBest3Col) + "," + String(kCfgOsdBest3Row) + "," +
-              String(kCfgOsdBest3ShowDuringRace ? 1 : 0) + "]");
-  cfg.println("gOsdBest3_race=[" + String(kCfgOsdBest3RaceCol) + "," + String(kCfgOsdBest3RaceRow) + "," +
-              String(kCfgOsdBest3RaceShowDuringRace ? 1 : 0) + "]");
-  cfg.println("gOsdRaceLaps=[" + String(kCfgOsdRaceLapsCol) + "," + String(kCfgOsdRaceLapsRow) + "," +
-              String(kCfgOsdRaceLapsShowDuringRace ? 1 : 0) + "]");
-  cfg.println("gOsdLapPopup=[" + String(kCfgLapPopupCol) + "," + String(kCfgLapPopupRow) + "," +
-              String(kCfgLapPopupShowDuringRace ? 1 : 0) + "]");
-  cfg.println("lock_threshold_rssi=" + String(kCfgLockThresholdRssi));
-  cfg.println("enter_offset_rssi=" + String(kCfgEnterOffsetRssi));
-  cfg.println("exit_offset_rssi=" + String(kCfgExitOffsetRssi));
-  cfg.println("min_lap_interval_ms=" + String(kCfgMinLapIntervalMs));
-  cfg.println("post_lock_ignore_ms=" + String(kCfgPostLockIgnoreMs));
-  cfg.println("rx5808_mode_select=" + String(kCfgRx5808ModeSelect));
-  cfg.println("sd_lap_logging_enabled=" + String(kCfgSdLapLoggingEnabled ? 1 : 0));
-  cfg.println("channel_select_source=" + String(kCfgChannelSelectSource));
+  cfg.println("osd_main_row=" + String(gCfgOsdMainRow));
+  cfg.println("osd_main_col=" + String(gCfgOsdMainCol));
+  cfg.println("gOsdChannel=[" + String(gCfgOsdChannelCol) + "," + String(gCfgOsdChannelRow) + "," +
+              String(gCfgOsdChannelShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdRssi=[" + String(gCfgOsdRssiCol) + "," + String(gCfgOsdRssiRow) + "," +
+              String(gCfgOsdRssiShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdLapPeakRssi=[" + String(gCfgOsdLapPeakRssiCol) + "," + String(gCfgOsdLapPeakRssiRow) + "," +
+              String(gCfgOsdLapPeakRssiShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdRssiThrUpper=[" + String(gCfgOsdRssiThrUpperCol) + "," + String(gCfgOsdRssiThrUpperRow) + "," +
+              String(gCfgOsdRssiThrUpperShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdRssiThrLower=[" + String(gCfgOsdRssiThrLowerCol) + "," + String(gCfgOsdRssiThrLowerRow) + "," +
+              String(gCfgOsdRssiThrLowerShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdBestLap=[" + String(gCfgOsdBestLapCol) + "," + String(gCfgOsdBestLapRow) + "," +
+              String(gCfgOsdBestLapShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdBestLap_race=[" + String(gCfgOsdBestLapRaceCol) + "," + String(gCfgOsdBestLapRaceRow) + "," +
+              String(gCfgOsdBestLapRaceShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdBest3=[" + String(gCfgOsdBest3Col) + "," + String(gCfgOsdBest3Row) + "," +
+              String(gCfgOsdBest3ShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdBest3_race=[" + String(gCfgOsdBest3RaceCol) + "," + String(gCfgOsdBest3RaceRow) + "," +
+              String(gCfgOsdBest3RaceShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdRaceLaps=[" + String(gCfgOsdRaceLapsCol) + "," + String(gCfgOsdRaceLapsRow) + "," +
+              String(gCfgOsdRaceLapsShowDuringRace ? 1 : 0) + "]");
+  cfg.println("gOsdLapPopup=[" + String(gCfgLapPopupCol) + "," + String(gCfgLapPopupRow) + "," +
+              String(gCfgLapPopupShowDuringRace ? 1 : 0) + "]");
+  cfg.println("lock_threshold_rssi=" + String(gCfgLockThresholdRssi));
+  cfg.println("enter_offset_rssi=" + String(gCfgEnterOffsetRssi));
+  cfg.println("exit_offset_rssi=" + String(gCfgExitOffsetRssi));
+  cfg.println("min_lap_interval_ms=" + String(gCfgMinLapIntervalMs));
+  cfg.println("post_lock_ignore_ms=" + String(gCfgPostLockIgnoreMs));
+  cfg.println("rx5808_mode_select=" + String(gCfgRx5808ModeSelect));
+  cfg.println("sd_lap_logging_enabled=" + String(gCfgSdLapLoggingEnabled ? 1 : 0));
+  cfg.println("channel_select_source=" + String(gCfgChannelSelectSource));
   for (uint8_t i = 0; i < 8; ++i) {
-    cfg.println("aux_range_r" + String(i + 1) + "=" + String(kCfgAuxRangeMinUs[i]) + "-" + String(kCfgAuxRangeMaxUs[i]));
+    cfg.println("aux_range_r" + String(i + 1) + "=" + String(gCfgAuxRangeMinUs[i]) + "-" + String(gCfgAuxRangeMaxUs[i]));
   }
-  cfg.println("arm_source=" + String(kCfgArmSource));
-  cfg.println("arm_active_min_us=" + String(kCfgArmActiveMinUs));
-  cfg.println("arm_active_max_us=" + String(kCfgArmActiveMaxUs));
-  cfg.println("new_race_after_disarm_ms=" + String(kCfgNewRaceAfterDisarmMs));
+  cfg.println("arm_source=" + String(gCfgArmSource));
+  cfg.println("arm_active_min_us=" + String(gCfgArmActiveMinUs));
+  cfg.println("arm_active_max_us=" + String(gCfgArmActiveMaxUs));
+  cfg.println("new_race_after_disarm_ms=" + String(gCfgNewRaceAfterDisarmMs));
   cfg.close();
   return true;
 }
@@ -1095,20 +1094,20 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     if (strcmp(key, "osd_main_row") == 0) {
       foundOsdMainRow = true;
       if (parseUnsignedLongStrict(val, ul)) {
-      kCfgOsdMainRow = static_cast<uint8_t>(ul);
+      gCfgOsdMainRow = static_cast<uint8_t>(ul);
       }
     } else if (strcmp(key, "osd_main_col") == 0) {
       foundOsdMainCol = true;
       if (parseUnsignedLongStrict(val, ul)) {
-      kCfgOsdMainCol = static_cast<uint8_t>(ul);
+      gCfgOsdMainCol = static_cast<uint8_t>(ul);
       }
     } else if (strcmp(key, "gOsdChannel") == 0) {
       foundOsdChannel = true;
       if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
-        kCfgOsdChannelCol = pointCol;
-        kCfgOsdChannelRow = pointRow;
+        gCfgOsdChannelCol = pointCol;
+        gCfgOsdChannelRow = pointRow;
         if (pointHasShowFlag) {
-          kCfgOsdChannelShowDuringRace = pointShowDuringRace;
+          gCfgOsdChannelShowDuringRace = pointShowDuringRace;
         } else {
           missingOsdShowDuringRaceFlag = true;
         }
@@ -1116,10 +1115,10 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     } else if (strcmp(key, "gOsdRssi") == 0) {
       foundOsdRssi = true;
       if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
-        kCfgOsdRssiCol = pointCol;
-        kCfgOsdRssiRow = pointRow;
+        gCfgOsdRssiCol = pointCol;
+        gCfgOsdRssiRow = pointRow;
         if (pointHasShowFlag) {
-          kCfgOsdRssiShowDuringRace = pointShowDuringRace;
+          gCfgOsdRssiShowDuringRace = pointShowDuringRace;
         } else {
           missingOsdShowDuringRaceFlag = true;
         }
@@ -1127,10 +1126,10 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     } else if (strcmp(key, "gOsdLapPeakRssi") == 0) {
       foundOsdLapPeakRssi = true;
       if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
-        kCfgOsdLapPeakRssiCol = pointCol;
-        kCfgOsdLapPeakRssiRow = pointRow;
+        gCfgOsdLapPeakRssiCol = pointCol;
+        gCfgOsdLapPeakRssiRow = pointRow;
         if (pointHasShowFlag) {
-          kCfgOsdLapPeakRssiShowDuringRace = pointShowDuringRace;
+          gCfgOsdLapPeakRssiShowDuringRace = pointShowDuringRace;
         } else {
           missingOsdShowDuringRaceFlag = true;
         }
@@ -1138,10 +1137,10 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     } else if (strcmp(key, "gOsdRssiThrUpper") == 0) {
       foundOsdRssiThrUpper = true;
       if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
-        kCfgOsdRssiThrUpperCol = pointCol;
-        kCfgOsdRssiThrUpperRow = pointRow;
+        gCfgOsdRssiThrUpperCol = pointCol;
+        gCfgOsdRssiThrUpperRow = pointRow;
         if (pointHasShowFlag) {
-          kCfgOsdRssiThrUpperShowDuringRace = pointShowDuringRace;
+          gCfgOsdRssiThrUpperShowDuringRace = pointShowDuringRace;
         } else {
           missingOsdShowDuringRaceFlag = true;
         }
@@ -1149,10 +1148,10 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     } else if (strcmp(key, "gOsdRssiThrLower") == 0) {
       foundOsdRssiThrLower = true;
       if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
-        kCfgOsdRssiThrLowerCol = pointCol;
-        kCfgOsdRssiThrLowerRow = pointRow;
+        gCfgOsdRssiThrLowerCol = pointCol;
+        gCfgOsdRssiThrLowerRow = pointRow;
         if (pointHasShowFlag) {
-          kCfgOsdRssiThrLowerShowDuringRace = pointShowDuringRace;
+          gCfgOsdRssiThrLowerShowDuringRace = pointShowDuringRace;
         } else {
           missingOsdShowDuringRaceFlag = true;
         }
@@ -1160,10 +1159,10 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     } else if (strcmp(key, "gOsdBestLap") == 0 || strcmp(key, "gOsdStat2") == 0) {
       foundOsdBestLap = true;
       if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
-        kCfgOsdBestLapCol = pointCol;
-        kCfgOsdBestLapRow = pointRow;
+        gCfgOsdBestLapCol = pointCol;
+        gCfgOsdBestLapRow = pointRow;
         if (pointHasShowFlag) {
-          kCfgOsdBestLapShowDuringRace = pointShowDuringRace;
+          gCfgOsdBestLapShowDuringRace = pointShowDuringRace;
         } else {
           missingOsdShowDuringRaceFlag = true;
         }
@@ -1171,10 +1170,10 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     } else if (strcmp(key, "gOsdBestLap_race") == 0) {
       foundOsdBestLapRace = true;
       if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
-        kCfgOsdBestLapRaceCol = pointCol;
-        kCfgOsdBestLapRaceRow = pointRow;
+        gCfgOsdBestLapRaceCol = pointCol;
+        gCfgOsdBestLapRaceRow = pointRow;
         if (pointHasShowFlag) {
-          kCfgOsdBestLapRaceShowDuringRace = pointShowDuringRace;
+          gCfgOsdBestLapRaceShowDuringRace = pointShowDuringRace;
         } else {
           missingOsdShowDuringRaceFlag = true;
         }
@@ -1182,10 +1181,10 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     } else if (strcmp(key, "gOsdBest3") == 0) {
       foundOsdBest3 = true;
       if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
-        kCfgOsdBest3Col = pointCol;
-        kCfgOsdBest3Row = pointRow;
+        gCfgOsdBest3Col = pointCol;
+        gCfgOsdBest3Row = pointRow;
         if (pointHasShowFlag) {
-          kCfgOsdBest3ShowDuringRace = pointShowDuringRace;
+          gCfgOsdBest3ShowDuringRace = pointShowDuringRace;
         } else {
           missingOsdShowDuringRaceFlag = true;
         }
@@ -1193,10 +1192,10 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     } else if (strcmp(key, "gOsdBest3_race") == 0) {
       foundOsdBest3Race = true;
       if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
-        kCfgOsdBest3RaceCol = pointCol;
-        kCfgOsdBest3RaceRow = pointRow;
+        gCfgOsdBest3RaceCol = pointCol;
+        gCfgOsdBest3RaceRow = pointRow;
         if (pointHasShowFlag) {
-          kCfgOsdBest3RaceShowDuringRace = pointShowDuringRace;
+          gCfgOsdBest3RaceShowDuringRace = pointShowDuringRace;
         } else {
           missingOsdShowDuringRaceFlag = true;
         }
@@ -1204,10 +1203,10 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     } else if (strcmp(key, "gOsdRaceLaps") == 0) {
       foundOsdRaceLaps = true;
       if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
-        kCfgOsdRaceLapsCol = pointCol;
-        kCfgOsdRaceLapsRow = pointRow;
+        gCfgOsdRaceLapsCol = pointCol;
+        gCfgOsdRaceLapsRow = pointRow;
         if (pointHasShowFlag) {
-          kCfgOsdRaceLapsShowDuringRace = pointShowDuringRace;
+          gCfgOsdRaceLapsShowDuringRace = pointShowDuringRace;
         } else {
           missingOsdShowDuringRaceFlag = true;
         }
@@ -1215,10 +1214,10 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     } else if (strcmp(key, "gOsdLapPopup") == 0) {
       foundOsdLapPopup = true;
       if (parseOsdPointWithFlagStrict(val, pointCol, pointRow, pointShowDuringRace, pointHasShowFlag)) {
-        kCfgLapPopupCol = pointCol;
-        kCfgLapPopupRow = pointRow;
+        gCfgLapPopupCol = pointCol;
+        gCfgLapPopupRow = pointRow;
         if (pointHasShowFlag) {
-          kCfgLapPopupShowDuringRace = pointShowDuringRace;
+          gCfgLapPopupShowDuringRace = pointShowDuringRace;
         } else {
           missingOsdShowDuringRaceFlag = true;
         }
@@ -1226,41 +1225,41 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
     } else if (strcmp(key, "lock_threshold_rssi") == 0) {
       foundLockThresholdRssi = true;
       if (parseUnsignedLongStrict(val, ul)) {
-      kCfgLockThresholdRssi = static_cast<uint8_t>(ul);
+      gCfgLockThresholdRssi = static_cast<uint8_t>(ul);
       }
     } else if (strcmp(key, "enter_offset_rssi") == 0) {
       foundEnterOffsetRssi = true;
       if (parseSignedLongStrict(val, sl)) {
-      kCfgEnterOffsetRssi = static_cast<int8_t>(sl);
+      gCfgEnterOffsetRssi = static_cast<int8_t>(sl);
       }
     } else if (strcmp(key, "exit_offset_rssi") == 0) {
       foundExitOffsetRssi = true;
       if (parseSignedLongStrict(val, sl)) {
-      kCfgExitOffsetRssi = static_cast<int8_t>(sl);
+      gCfgExitOffsetRssi = static_cast<int8_t>(sl);
       }
     } else if (strcmp(key, "min_lap_interval_ms") == 0) {
       foundMinLapIntervalMs = true;
       if (parseUnsignedLongStrict(val, ul)) {
-      kCfgMinLapIntervalMs = ul;
+      gCfgMinLapIntervalMs = ul;
       }
     } else if (strcmp(key, "post_lock_ignore_ms") == 0) {
       foundPostLockIgnoreMs = true;
       if (parseUnsignedLongStrict(val, ul)) {
-      kCfgPostLockIgnoreMs = ul;
+      gCfgPostLockIgnoreMs = ul;
       }
     } else if (strcmp(key, "rx5808_mode_select") == 0) {
       foundRx5808ModeSelect = true;
       if (parseUnsignedLongStrict(val, ul)) {
-      kCfgRx5808ModeSelect = static_cast<uint8_t>(ul);
+      gCfgRx5808ModeSelect = static_cast<uint8_t>(ul);
       }
     } else if (strcmp(key, "sd_lap_logging_enabled") == 0) {
       foundSdLapLoggingEnabled = true;
       if (parseBoolStrict(val, bv)) {
-      kCfgSdLapLoggingEnabled = bv;
+      gCfgSdLapLoggingEnabled = bv;
       }
     } else if (strcmp(key, "channel_select_source") == 0) {
       foundChannelSelectSource = true;
-      snprintf(kCfgChannelSelectSource, sizeof(kCfgChannelSelectSource), "%s", val);
+      snprintf(gCfgChannelSelectSource, sizeof(gCfgChannelSelectSource), "%s", val);
     } else if (strncmp(key, "aux_range_r", 11) == 0) {
       char *end = nullptr;
       const long rNo = strtol(key + 11, &end, 10);
@@ -1270,74 +1269,74 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
         uint16_t hi = 0;
         if (parseUsRangeStrict(val, lo, hi)) {
           const uint8_t idx = static_cast<uint8_t>(rNo - 1);
-          kCfgAuxRangeMinUs[idx] = lo;
-          kCfgAuxRangeMaxUs[idx] = hi;
+          gCfgAuxRangeMinUs[idx] = lo;
+          gCfgAuxRangeMaxUs[idx] = hi;
         }
       }
     } else if (strcmp(key, "arm_source") == 0) {
       foundArmSource = true;
-      snprintf(kCfgArmSource, sizeof(kCfgArmSource), "%s", val);
+      snprintf(gCfgArmSource, sizeof(gCfgArmSource), "%s", val);
     } else if (strcmp(key, "arm_active_min_us") == 0) {
       foundArmActiveMinUs = true;
       if (parseUnsignedLongStrict(val, ul)) {
-      kCfgArmActiveMinUs = static_cast<uint16_t>(ul);
+      gCfgArmActiveMinUs = static_cast<uint16_t>(ul);
       }
     } else if (strcmp(key, "arm_active_max_us") == 0) {
       foundArmActiveMaxUs = true;
       if (parseUnsignedLongStrict(val, ul)) {
-      kCfgArmActiveMaxUs = static_cast<uint16_t>(ul);
+      gCfgArmActiveMaxUs = static_cast<uint16_t>(ul);
       }
     } else if (strcmp(key, "new_race_after_disarm_ms") == 0) {
       foundNewRaceAfterDisarmMs = true;
       if (parseUnsignedLongStrict(val, ul)) {
-      kCfgNewRaceAfterDisarmMs = ul;
+      gCfgNewRaceAfterDisarmMs = ul;
       }
     }
   }
 
   cfg.close();
   if (!foundOsdChannel) {
-    kCfgOsdChannelRow = kCfgOsdMainRow;
-    kCfgOsdChannelCol = 1;
+    gCfgOsdChannelRow = gCfgOsdMainRow;
+    gCfgOsdChannelCol = 1;
   }
   if (!foundOsdRssi) {
-    kCfgOsdRssiRow = kCfgOsdMainRow;
-    kCfgOsdRssiCol = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdMainCol) - 4, kCfgOsdMainColMin, kCfgOsdMainColMax));
+    gCfgOsdRssiRow = gCfgOsdMainRow;
+    gCfgOsdRssiCol = static_cast<uint8_t>(constrain(static_cast<int>(gCfgOsdMainCol) - 4, kOsdColMin, kOsdColMax));
   }
   if (!foundOsdLapPeakRssi) {
-    kCfgOsdLapPeakRssiRow = kCfgOsdRssiRow;
-    kCfgOsdLapPeakRssiCol =
-        static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdRssiCol) + 6, kCfgOsdMainColMin, kCfgOsdMainColMax));
+    gCfgOsdLapPeakRssiRow = gCfgOsdRssiRow;
+    gCfgOsdLapPeakRssiCol =
+        static_cast<uint8_t>(constrain(static_cast<int>(gCfgOsdRssiCol) + 6, kOsdColMin, kOsdColMax));
   }
   if (!foundOsdRssiThrUpper) {
-    kCfgOsdRssiThrUpperRow = kCfgOsdLapPeakRssiRow;
-    kCfgOsdRssiThrUpperCol =
-        static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdLapPeakRssiCol) + 7, kCfgOsdMainColMin, kCfgOsdMainColMax));
+    gCfgOsdRssiThrUpperRow = gCfgOsdLapPeakRssiRow;
+    gCfgOsdRssiThrUpperCol =
+        static_cast<uint8_t>(constrain(static_cast<int>(gCfgOsdLapPeakRssiCol) + 7, kOsdColMin, kOsdColMax));
   }
   if (!foundOsdRssiThrLower) {
-    kCfgOsdRssiThrLowerRow = kCfgOsdLapPeakRssiRow;
-    kCfgOsdRssiThrLowerCol =
-        static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdLapPeakRssiCol) + 14, kCfgOsdMainColMin, kCfgOsdMainColMax));
+    gCfgOsdRssiThrLowerRow = gCfgOsdLapPeakRssiRow;
+    gCfgOsdRssiThrLowerCol =
+        static_cast<uint8_t>(constrain(static_cast<int>(gCfgOsdLapPeakRssiCol) + 14, kOsdColMin, kOsdColMax));
   }
   if (!foundOsdBestLap) {
-    kCfgOsdBestLapRow = kCfgOsdMainRow;
-    kCfgOsdBestLapCol = 12;
+    gCfgOsdBestLapRow = gCfgOsdMainRow;
+    gCfgOsdBestLapCol = 12;
   }
   if (!foundOsdBestLapRace) {
-    kCfgOsdBestLapRaceRow = kCfgOsdMainRow;
-    kCfgOsdBestLapRaceCol = 24;
+    gCfgOsdBestLapRaceRow = gCfgOsdMainRow;
+    gCfgOsdBestLapRaceCol = 24;
   }
   if (!foundOsdBest3) {
-    kCfgOsdBest3Row = kCfgOsdMainRow;
-    kCfgOsdBest3Col = 36;
+    gCfgOsdBest3Row = gCfgOsdMainRow;
+    gCfgOsdBest3Col = 36;
   }
   if (!foundOsdRaceLaps) {
-    kCfgOsdRaceLapsRow = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdMainRow) - 12, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-    kCfgOsdRaceLapsCol = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdMainCol) + 21, kCfgOsdMainColMin, kCfgOsdMainColMax));
+    gCfgOsdRaceLapsRow = static_cast<uint8_t>(constrain(static_cast<int>(gCfgOsdMainRow) - 12, kOsdRowMin, kOsdRowMax));
+    gCfgOsdRaceLapsCol = static_cast<uint8_t>(constrain(static_cast<int>(gCfgOsdMainCol) + 21, kOsdColMin, kOsdColMax));
   }
   if (!foundOsdBest3Race) {
-    kCfgOsdBest3RaceRow = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdRaceLapsRow) - 1, kCfgOsdMainRowMin, kCfgOsdMainRowMax));
-    kCfgOsdBest3RaceCol = static_cast<uint8_t>(constrain(static_cast<int>(kCfgOsdMainCol) + 21, kCfgOsdMainColMin, kCfgOsdMainColMax));
+    gCfgOsdBest3RaceRow = static_cast<uint8_t>(constrain(static_cast<int>(gCfgOsdRaceLapsRow) - 1, kOsdRowMin, kOsdRowMax));
+    gCfgOsdBest3RaceCol = static_cast<uint8_t>(constrain(static_cast<int>(gCfgOsdMainCol) + 21, kOsdColMin, kOsdColMax));
   }
   bool auxMissing = false;
   for (uint8_t i = 0; i < 8; ++i) {
@@ -1363,7 +1362,7 @@ bool loadConfigFromSd(bool &hadMissingKeys) {
 }
 
 bool ensureLapsCsvHeaderOnSd() {
-  if (!gSdReady || !kCfgSdLapLoggingEnabled) {
+  if (!gSdReady || !gCfgSdLapLoggingEnabled) {
     return false;
   }
   if (!SD.exists(kSdLogsDirPath)) {
@@ -1509,7 +1508,7 @@ bool recoverSdForLogging() {
   if (!reinitSdCardBus(false)) {
     return false;
   }
-  if (kCfgSdLapLoggingEnabled) {
+  if (gCfgSdLapLoggingEnabled) {
     if (!ensureLapsCsvHeaderOnSd()) {
       return false;
     }
@@ -1558,7 +1557,7 @@ void enqueueLapLog(uint16_t lapNo, uint32_t lapMs, bool isNewBest) {
 }
 
 void flushPendingLapLogsToSd() {
-  if (!kCfgSdLapLoggingEnabled || gSdLoggingRuntimeDisabled || gPendingLapLogCount == 0) {
+  if (!gCfgSdLapLoggingEnabled || gSdLoggingRuntimeDisabled || gPendingLapLogCount == 0) {
     return;
   }
 
@@ -1614,7 +1613,7 @@ void setupSdLogging() {
   gSdReady = false;
   gSdLoggingRuntimeDisabled = false;
   if (!initSdCardBus(true)) {
-    if (kCfgSdLapLoggingEnabled) {
+    if (gCfgSdLapLoggingEnabled) {
       disableSdLoggingRuntime("SD init failed at boot");
     }
     return;
@@ -1637,7 +1636,7 @@ void setupSdLogging() {
       Serial.println("Config write failed (continuing with hardcoded defaults)");
     }
   }
-  if (kCfgSdLapLoggingEnabled) {
+  if (gCfgSdLapLoggingEnabled) {
     if (ensureLapsCsvHeaderOnSd()) {
       Serial.println("SD ready (lap logging ON)");
     } else {
@@ -1652,7 +1651,7 @@ void setupSdLogging() {
 }
 
 void appendLapToSd(uint16_t lapNo, uint32_t lapMs, bool isNewBest) {
-  if (!kCfgSdLapLoggingEnabled || gSdLoggingRuntimeDisabled || !gSdReady) {
+  if (!gCfgSdLapLoggingEnabled || gSdLoggingRuntimeDisabled || !gSdReady) {
     return;
   }
   enqueueLapLog(lapNo, lapMs, isNewBest);
@@ -1729,6 +1728,24 @@ void updateBestHalfSessionAverage() {
                                                        gSessionLapStatsCount, kSessionLapTopPercent);
 }
 
+uint32_t computeSessionWindowBestLapMs() {
+  // Fastest lap within the rolling last-100 window. Only counted (non-fake)
+  // laps land in gSessionLapStatsMs, so this is inherently glitch-free.
+  // Valid entries are indices 0..count-1 (when the window is full, count == window),
+  // and min() is order-independent, so the ring offset is irrelevant here.
+  uint32_t best = 0;
+  for (uint16_t i = 0; i < gSessionLapStatsCount; ++i) {
+    const uint32_t v = gSessionLapStatsMs[i];
+    if (v == 0) {
+      continue;
+    }
+    if (best == 0 || v < best) {
+      best = v;
+    }
+  }
+  return best;
+}
+
 void appendSessionLapForBestHalfAverage(uint32_t lapMs) {
   gSessionLapStatsMs[gSessionLapStatsWrite] = lapMs;
   gSessionLapStatsWrite = static_cast<uint16_t>((gSessionLapStatsWrite + 1U) % kSessionLapStatsWindow);
@@ -1754,8 +1771,8 @@ bool timerActive(unsigned long now, unsigned long untilMs) {
 
 bool sendRaceLapsColumnOsd(const uint32_t *lapsMs, uint8_t lapCount, bool allowRender) {
   static OsdRaceLapsRenderCache sCache;
-  return osdSendRaceLapsColumn(lapsMs, lapCount, allowRender, kCfgOsdRaceLapsRow, kCfgOsdRaceLapsCol,
-                               kCfgOsdMainRowMax, sCache, sendOsdText);
+  return osdSendRaceLapsColumn(lapsMs, lapCount, allowRender, gCfgOsdRaceLapsRow, gCfgOsdRaceLapsCol,
+                               kOsdRowMax, sCache, sendOsdText);
 }
 
 bool sendOsdComposedStatus(const char *channelText, const char *rssiText, const char *lapPeakRssiText,
@@ -1767,20 +1784,20 @@ bool sendOsdComposedStatus(const char *channelText, const char *rssiText, const 
                            const char *waitVtxAdminText,
                            bool raceInProgress) {
   return osdSendComposedStatus(
-      gOsdForceFullRefresh, kCfgOsdMainColMax,
+      gOsdForceFullRefresh, kOsdColMax,
       channelText, rssiText, lapPeakRssiText, rssiThrUpperText, rssiThrLowerText,
       bestLapText, bestLapRaceText, best3Text, best3RaceText,
       lapPopupText, waitVtxAdminText,
-      kCfgOsdChannelRow, kCfgOsdChannelCol, kCfgOsdChannelShowDuringRace,
-      kCfgOsdRssiRow, kCfgOsdRssiCol, kCfgOsdRssiShowDuringRace,
-      kCfgOsdLapPeakRssiRow, kCfgOsdLapPeakRssiCol, kCfgOsdLapPeakRssiShowDuringRace,
-      kCfgOsdRssiThrUpperRow, kCfgOsdRssiThrUpperCol, kCfgOsdRssiThrUpperShowDuringRace,
-      kCfgOsdRssiThrLowerRow, kCfgOsdRssiThrLowerCol, kCfgOsdRssiThrLowerShowDuringRace,
-      kCfgOsdBestLapRow, kCfgOsdBestLapCol, kCfgOsdBestLapShowDuringRace,
-      kCfgOsdBestLapRaceRow, kCfgOsdBestLapRaceCol, kCfgOsdBestLapRaceShowDuringRace,
-      kCfgOsdBest3Row, kCfgOsdBest3Col, kCfgOsdBest3ShowDuringRace,
-      kCfgOsdBest3RaceRow, kCfgOsdBest3RaceCol, kCfgOsdBest3RaceShowDuringRace,
-      kCfgLapPopupRow, kCfgLapPopupCol, kCfgLapPopupShowDuringRace,
+      gCfgOsdChannelRow, gCfgOsdChannelCol, gCfgOsdChannelShowDuringRace,
+      gCfgOsdRssiRow, gCfgOsdRssiCol, gCfgOsdRssiShowDuringRace,
+      gCfgOsdLapPeakRssiRow, gCfgOsdLapPeakRssiCol, gCfgOsdLapPeakRssiShowDuringRace,
+      gCfgOsdRssiThrUpperRow, gCfgOsdRssiThrUpperCol, gCfgOsdRssiThrUpperShowDuringRace,
+      gCfgOsdRssiThrLowerRow, gCfgOsdRssiThrLowerCol, gCfgOsdRssiThrLowerShowDuringRace,
+      gCfgOsdBestLapRow, gCfgOsdBestLapCol, gCfgOsdBestLapShowDuringRace,
+      gCfgOsdBestLapRaceRow, gCfgOsdBestLapRaceCol, gCfgOsdBestLapRaceShowDuringRace,
+      gCfgOsdBest3Row, gCfgOsdBest3Col, gCfgOsdBest3ShowDuringRace,
+      gCfgOsdBest3RaceRow, gCfgOsdBest3RaceCol, gCfgOsdBest3RaceShowDuringRace,
+      gCfgLapPopupRow, gCfgLapPopupCol, gCfgLapPopupShowDuringRace,
       kOsdWaitVtxAdminRow, kOsdWaitVtxAdminCol,
       raceInProgress, sendOsdText);
 }
@@ -1909,7 +1926,7 @@ void sendLockedStatusOsd() {
     lapsToRenderCount = gLastCompletedRaceLapCount;
   }
   const bool raceLapsVisibleNow =
-      osdIsElementVisibleNow(kCfgOsdRaceLapsCol, kCfgOsdRaceLapsRow, kCfgOsdRaceLapsShowDuringRace, raceInProgress);
+      osdIsElementVisibleNow(gCfgOsdRaceLapsCol, gCfgOsdRaceLapsRow, gCfgOsdRaceLapsShowDuringRace, raceInProgress);
   const bool raceLapsChanged = sendRaceLapsColumnOsd(lapsToRender, lapsToRenderCount, raceLapsVisibleNow);
   if (composedChanged || raceLapsChanged) {
     sendOsdDisplay();
@@ -1922,8 +1939,8 @@ void sendLapPopupBlinkOnly(unsigned long now) {
 
   const bool armActiveForTiming = !gArmSourceEnabled || (gArmStateKnown && gArmActive);
   const bool raceInProgress = (gTimerMode == MODE_TIMING) && armActiveForTiming;
-  const bool lapPopupEnabled = osdIsElementVisibleNow(kCfgLapPopupCol, kCfgLapPopupRow,
-                                                      kCfgLapPopupShowDuringRace, raceInProgress);
+  const bool lapPopupEnabled = osdIsElementVisibleNow(gCfgLapPopupCol, gCfgLapPopupRow,
+                                                      gCfgLapPopupShowDuringRace, raceInProgress);
 
   bool popupActive = timerActive(now, gLapPopupUntilMs) && gLastLapMs > 0 && lapPopupEnabled;
   char lapPopup[32] = {};
@@ -1966,14 +1983,14 @@ void sendLapPopupBlinkOnly(unsigned long now) {
   const bool shouldShow = popupActive && blinkOn;
   if (shouldShow) {
     if (!sPopupWasVisible || strcmp(sLastPopup, lapPopup) != 0) {
-      if (sendOsdText(kCfgLapPopupRow, kCfgLapPopupCol, lapPopup)) {
+      if (sendOsdText(gCfgLapPopupRow, gCfgLapPopupCol, lapPopup)) {
         sendOsdDisplay();
         snprintf(sLastPopup, sizeof(sLastPopup), "%s", lapPopup);
       }
     }
     sPopupWasVisible = true;
   } else if (sPopupWasVisible) {
-    if (sendOsdText(kCfgLapPopupRow, kCfgLapPopupCol, "                ")) {
+    if (sendOsdText(gCfgLapPopupRow, gCfgLapPopupCol, "                ")) {
       sendOsdDisplay();
     }
     sPopupWasVisible = false;
@@ -2219,7 +2236,6 @@ void applyThresholdsFromReferenceRssi(uint8_t referenceRssi) {
 
 void resetPeakCaptureState() {
   gRssiPeak = 0;
-  gGateWindowPeakRssi = 0;
   gRssiPeakTimeMs = 0;
   gBelowExitStreak = 0;
 }
@@ -2341,7 +2357,7 @@ bool applyVtxRequestedChannel(uint8_t index) {
   if (sendVrxChannelIndex(index)) {
     vrxSynced = true;
     Serial.printf("Sent MSP_SET_VTX_CONFIG index=%u for %s\n",
-                  static_cast<unsigned>(32U + index), ch.name);
+                  static_cast<unsigned>(channelIndexToMspTableIndex48(index)), ch.name);
   } else {
     Serial.println("Failed to send MSP_SET_VTX_CONFIG for VRX channel sync");
   }
@@ -2436,9 +2452,16 @@ void processScan(unsigned long now) {
           sendLockedStatusOsd();
         }
       }
-      if (rssi > gStrongSignalRssi && isArmReadyForCalibration()) {
-        lockToChannel(forcedIdx, rssi);
-      }
+      // Lock through the same peak-then-drop calibration as the AUX path,
+      // instead of locking immediately, so ADMIN and AUX channel sources
+      // behave identically. The VTX-CAL block at the top of processScan()
+      // arms on RSSI rise, keeps the peak, waits for ARM, and locks once
+      // RSSI drops below the dynamic exit threshold.
+      gVtxCalActive = true;
+      gVtxCalIndex = forcedIdx;
+      gVtxCalPeakArmed = false;
+      gBestScanRssi = 0;
+      gLastScanStepMs = 0;  // allow immediate first calibration sample
     } else if (now - gLastOsdStatusMs >= kOsdStatusPeriodMs) {
       gLastOsdStatusMs = now;
       gOsdForceFullRefresh = true;
@@ -2525,12 +2548,6 @@ void processTiming(unsigned long now) {
       gLastArmActive = true;
       resetPeakCaptureState();
     }
-  }
-
-  // Gate debug peak: max RSSI while signal is above lower threshold (T-).
-  // This value is used for LP OSD debug field.
-  if (rssi > gExitRssi && rssi > gGateWindowPeakRssi) {
-    gGateWindowPeakRssi = rssi;
   }
 
   // StarForge-style peak capture (without median filter):
@@ -2621,13 +2638,14 @@ void processTiming(unsigned long now) {
         }
         pushLapHistory(lapMs);
         appendCurrentRaceLap(lapMs);
+        // SF tracks the fastest lap within the rolling last-100 window: a glitch
+        // lap that slips through early drops out once 100 newer laps accumulate.
+        const uint32_t prevWindowBestMs = computeSessionWindowBestLapMs();  // before adding this lap
         appendSessionLapForBestHalfAverage(lapMs);
-        const bool isNewBestLap = (gBestLapSessionMs == 0) || (lapMs < gBestLapSessionMs);
-        if (gBestLapSessionMs == 0 || lapMs < gBestLapSessionMs) {
-          gBestLapSessionMs = lapMs;
-        }
+        const bool isNewBestLap = (prevWindowBestMs == 0) || (lapMs < prevWindowBestMs);
+        gBestLapSessionMs = computeSessionWindowBestLapMs();  // min over last 100 (incl. this lap)
         if (gBestLapRaceMs == 0 || lapMs < gBestLapRaceMs) {
-          gBestLapRaceMs = lapMs;
+          gBestLapRaceMs = lapMs;  // RF: fastest of current race (unchanged)
         }
         const unsigned long popupNow = millis();
         if (isNewBestLap) {
@@ -2691,29 +2709,29 @@ void setup() {
   applyUserSettings();
   runConfigSelfTest();
   Serial.printf("Settings: OSD(%u,%u) popup(%u,%u) lock=%u enterOfs=%d exitOfs=%d cooldown=%lums exitConfirm=%u\n",
-                kCfgOsdMainRow, kCfgOsdMainCol, kCfgLapPopupRow, kCfgLapPopupCol,
+                gCfgOsdMainRow, gCfgOsdMainCol, gCfgLapPopupRow, gCfgLapPopupCol,
                 gStrongSignalRssi, static_cast<int>(gEnterRssiOffset), static_cast<int>(gExitRssiOffset),
                 static_cast<unsigned long>(gMinLapIntervalMs), static_cast<unsigned>(gExitConfirmSamples));
   Serial.printf("OSD elements: CH(%u,%u) RSSI(%u,%u) LPR(%u,%u) THU(%u,%u) THL(%u,%u) BEST(%u,%u) FR(%u,%u) B3(%u,%u) B3R(%u,%u) RACE_LAPS(%u,%u) POP(%u,%u)\n",
-                kCfgOsdChannelCol, kCfgOsdChannelRow, kCfgOsdRssiCol, kCfgOsdRssiRow,
-                kCfgOsdLapPeakRssiCol, kCfgOsdLapPeakRssiRow,
-                kCfgOsdRssiThrUpperCol, kCfgOsdRssiThrUpperRow, kCfgOsdRssiThrLowerCol, kCfgOsdRssiThrLowerRow,
-                kCfgOsdBestLapCol, kCfgOsdBestLapRow, kCfgOsdBestLapRaceCol, kCfgOsdBestLapRaceRow,
-                kCfgOsdBest3Col, kCfgOsdBest3Row,
-                kCfgOsdBest3RaceCol, kCfgOsdBest3RaceRow,
-                kCfgOsdRaceLapsCol, kCfgOsdRaceLapsRow, kCfgLapPopupCol, kCfgLapPopupRow);
+                gCfgOsdChannelCol, gCfgOsdChannelRow, gCfgOsdRssiCol, gCfgOsdRssiRow,
+                gCfgOsdLapPeakRssiCol, gCfgOsdLapPeakRssiRow,
+                gCfgOsdRssiThrUpperCol, gCfgOsdRssiThrUpperRow, gCfgOsdRssiThrLowerCol, gCfgOsdRssiThrLowerRow,
+                gCfgOsdBestLapCol, gCfgOsdBestLapRow, gCfgOsdBestLapRaceCol, gCfgOsdBestLapRaceRow,
+                gCfgOsdBest3Col, gCfgOsdBest3Row,
+                gCfgOsdBest3RaceCol, gCfgOsdBest3RaceRow,
+                gCfgOsdRaceLapsCol, gCfgOsdRaceLapsRow, gCfgLapPopupCol, gCfgLapPopupRow);
   Serial.printf("OSD showDuringRace: CH=%u RSSI=%u LPR=%u THU=%u THL=%u SF=%u RF=%u S3=%u R3=%u LAPS=%u POP=%u\n",
-                static_cast<unsigned>(kCfgOsdChannelShowDuringRace),
-                static_cast<unsigned>(kCfgOsdRssiShowDuringRace),
-                static_cast<unsigned>(kCfgOsdLapPeakRssiShowDuringRace),
-                static_cast<unsigned>(kCfgOsdRssiThrUpperShowDuringRace),
-                static_cast<unsigned>(kCfgOsdRssiThrLowerShowDuringRace),
-                static_cast<unsigned>(kCfgOsdBestLapShowDuringRace),
-                static_cast<unsigned>(kCfgOsdBestLapRaceShowDuringRace),
-                static_cast<unsigned>(kCfgOsdBest3ShowDuringRace),
-                static_cast<unsigned>(kCfgOsdBest3RaceShowDuringRace),
-                static_cast<unsigned>(kCfgOsdRaceLapsShowDuringRace),
-                static_cast<unsigned>(kCfgLapPopupShowDuringRace));
+                static_cast<unsigned>(gCfgOsdChannelShowDuringRace),
+                static_cast<unsigned>(gCfgOsdRssiShowDuringRace),
+                static_cast<unsigned>(gCfgOsdLapPeakRssiShowDuringRace),
+                static_cast<unsigned>(gCfgOsdRssiThrUpperShowDuringRace),
+                static_cast<unsigned>(gCfgOsdRssiThrLowerShowDuringRace),
+                static_cast<unsigned>(gCfgOsdBestLapShowDuringRace),
+                static_cast<unsigned>(gCfgOsdBestLapRaceShowDuringRace),
+                static_cast<unsigned>(gCfgOsdBest3ShowDuringRace),
+                static_cast<unsigned>(gCfgOsdBest3RaceShowDuringRace),
+                static_cast<unsigned>(gCfgOsdRaceLapsShowDuringRace),
+                static_cast<unsigned>(gCfgLapPopupShowDuringRace));
   if (gChannelSelectSource == CHANNEL_SELECT_SOURCE_ADMIN) {
     Serial.println("Channel select source: ADMIN");
   } else {
@@ -2727,12 +2745,12 @@ void setup() {
   }
 
   setupEspNowWithBackpackUid();
-  if (kCfgRx5808ModeSelect == 2) {
+  if (gCfgRx5808ModeSelect == 2) {
     gRx5808Enabled = false;
     Serial.println("Auto-bind active (RX5808 force off)");
   } else {
     setupRX5808();
-    if (kCfgRx5808ModeSelect == 1) {
+    if (gCfgRx5808ModeSelect == 1) {
       gRx5808Enabled = true;
       Serial.println("RX5808 mode: force on");
     } else {

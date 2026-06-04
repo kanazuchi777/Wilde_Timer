@@ -264,13 +264,7 @@ bool osdSendComposedStatus(
       popupChanged = true;
     }
     sLapPopupWasVisible = true;
-  } else if (lapPopupEnabled && sLapPopupWasVisible) {
-    if (sendTextFn(lapPopupRow, lapPopupCol, "                ")) {
-      sLapPopupWasVisible = false;
-      sLastLapPopup[0] = '\0';
-      popupChanged = true;
-    }
-  } else if (!lapPopupEnabled && sLapPopupWasVisible) {
+  } else if (sLapPopupWasVisible) {
     if (sendTextFn(lapPopupRow, lapPopupCol, "                ")) {
       sLapPopupWasVisible = false;
       sLastLapPopup[0] = '\0';
