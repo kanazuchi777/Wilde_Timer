@@ -1,315 +1,368 @@
-﻿# Wilde Timer Firmware
+# Wilde Timer
 
-This documentation reflects the current implementation in `src/wilde_timer_firmware/main.cpp`.
-If README and code ever differ, treat the code as the source of truth.
+Wilde Timer is a single-gate FPV lap timer built on an ESP32 (or ESP32-S3).
+It measures the RSSI of a passing drone's video transmitter with an RX5808
+5.8 GHz receiver, draws lap times and stats straight onto your ELRS goggles
+OSD over ESP-NOW (no extra wires to the goggles), takes channel selection and
+ARM from your radio through an ELRS receiver (CRSF), and logs every valid lap
+to a microSD card.
 
-## Project Structure
+This document describes everything the firmware currently does. If the README
+and the code ever disagree, the code is the source of truth.
 
-- `src/wilde_timer_firmware/main.cpp` - full runtime logic (ESP-NOW, CRSF, RX5808, OSD, lap timing, SD)
-- `src/wilde_timer_firmware/modules/parse_utils.h/.cpp` - config parsing and validation helpers
-- `platformio.ini` - build environments (`esp32D`, `esp32-s3-devkitc-1`)
+---
 
-## Build and Flash
+## What you need
 
-- ESP32 DevKit (`esp32D`):
-  - `pio run -e esp32D -t upload`
-- ESP32-S3 DevKitC:
-  - `pio run -e esp32-s3-devkitc-1 -t upload`
-- Serial monitor:
-  - `pio device monitor -b 115200`
+- ESP32 dev board (`esp32dev`) **or** ESP32-S3 DevKitC
+- RX5808 5.8 GHz receiver module with RSSI output and SPI frequency control
+- microSD card module (SPI) + a FAT32 microSD card
+- An ELRS receiver bound to your radio, wired to the timer over CRSF UART
+  (this is how the timer reads AUX channels and VTX info)
+- ELRS goggles with a backpack (this is what shows the OSD, reached wirelessly
+  over ESP-NOW — nothing to solder for this part)
+- Common ground between all modules, and a 5 V supply (USB is fine)
 
-## Hardware Pinout (from code)
+> ⚠️ ESP32 GPIO are **3.3 V logic**. Never feed 5 V into a GPIO pin. Power the
+> modules from 5 V/3.3 V as each module requires, but keep all signal lines at
+> 3.3 V.
 
-### ESP32-S3
+---
 
-- RX5808:
-  - `RSSI -> GPIO4`
-  - `DATA -> GPIO10`
-  - `SEL -> GPIO11`
-  - `CLK -> GPIO12`
-- SD (SPI):
-  - `CS -> GPIO39`
-  - `SCK -> GPIO36`
-  - `MISO -> GPIO37`
-  - `MOSI -> GPIO35`
-- ELRS/CRSF UART:
-  - `RX (from external TX) -> GPIO16`
-  - `TX (to external RX) -> GPIO17`
-  - baud: `420000`
+## Wiring / Soldering
 
-### ESP32D (`esp32dev`)
+All three peripherals connect to the ESP32. Pick the table that matches your
+board. Tie every module's **GND to the ESP32 GND**.
 
-- RX5808:
-  - `RSSI -> GPIO34`
-  - `DATA -> GPIO23`
-  - `CLK -> GPIO18`
-  - `SEL -> GPIO5`
-- SD (SPI):
-  - `CS -> GPIO33`
-  - `SCK -> GPIO25`
-  - `MISO -> GPIO27`
-  - `MOSI -> GPIO26`
-- ELRS/CRSF UART:
-  - `RX <- GPIO16`
-  - `TX -> GPIO17`
-  - baud: `420000`
+### ESP32-S3 DevKitC
 
-## Runtime Model
+| Signal | From | ESP32-S3 pin |
+|---|---|---|
+| RX5808 RSSI (analog) | RX5808 RSSI pad | `GPIO4` |
+| RX5808 DATA (CH1) | RX5808 | `GPIO10` |
+| RX5808 SEL  (CH2) | RX5808 | `GPIO11` |
+| RX5808 CLK  (CH3) | RX5808 | `GPIO12` |
+| SD CS   | microSD module | `GPIO39` |
+| SD SCK  | microSD module | `GPIO36` |
+| SD MISO | microSD module | `GPIO37` |
+| SD MOSI | microSD module | `GPIO35` |
+| CRSF in | ELRS RX **TX** pad | `GPIO16` |
+| CRSF out | ELRS RX **RX** pad | `GPIO17` |
 
-### 1. Link and bind
+### ESP32 DevKit (`esp32dev`)
 
-- Uses ESP-NOW with auto-bind broadcast (`MSP_ELRS_BIND`).
-- Sends periodic probe (`MSP_ELRS_SET_OSD` display opcode).
-- If no successful unicast traffic is seen within `kLinkTimeoutMs`, link is considered lost and auto-bind restarts.
+| Signal | From | ESP32 pin |
+|---|---|---|
+| RX5808 RSSI (analog) | RX5808 RSSI pad | `GPIO34` (input only) |
+| RX5808 DATA | RX5808 | `GPIO23` |
+| RX5808 CLK  | RX5808 | `GPIO18` |
+| RX5808 SEL  | RX5808 | `GPIO5` |
+| SD CS   | microSD module | `GPIO33` |
+| SD SCK  | microSD module | `GPIO25` |
+| SD MISO | microSD module | `GPIO27` |
+| SD MOSI | microSD module | `GPIO26` |
+| CRSF in | ELRS RX **TX** pad | `GPIO16` |
+| CRSF out | ELRS RX **RX** pad | `GPIO17` |
 
-### 2. Channel source
+CRSF UART runs at **420000 baud**.
 
-Two supported sources:
+### Soldering notes
 
-- `ADMIN` (CRSF VTX ADMIN)
-- `AUXx` (AUX range mapped to `R1..R8`)
+- **RX5808 RSSI** is an analog voltage (~0–3.3 V). Solder it to the dedicated
+  RSSI pad/pin of the module and run it to the analog pin above. Keep this wire
+  short and away from noisy power lines for cleaner readings.
+- **RX5808 frequency control** uses three pins (DATA/SEL/CLK). Some RX5808
+  modules ship in "button" mode and need the SPI mod (a resistor/jumper change)
+  before the timer can set the channel. If the channel never tunes, check your
+  module's SPI-enable mod.
+- **CRSF** is a single half-duplex line on the ELRS side, but here it is wired
+  as a normal UART: the receiver's **TX** pad goes to the ESP32 **RX (GPIO16)**.
+  The ESP32 **TX (GPIO17)** back to the receiver is only needed for writing VTX
+  Admin channel changes back toward the goggles; it is harmless to connect.
+- **microSD** is standard SPI. A 3.3 V-capable module is recommended; many
+  modules include a level shifter and 5 V regulator.
+- Bring all grounds to a single common point.
 
-Behavior:
+---
 
-- `ADMIN` mode does not do fallback R1..R8 sweep.
-- `AUX` mode uses only configured AUX ranges.
-- When channel changes, session stats are preserved, but calibration is restarted for the new channel.
+## How it works
 
-### 3. Scan -> Lock -> Timing
+### Link and bind (to the goggles)
 
-- Scan reads RSSI on selected channel.
-- Current channel selection is externally driven (AUX/ADMIN), so in VTX calibration flow lock happens as soon as ARM is ready.
-- `lock_threshold_rssi` is still used in scan-to-lock gating paths where RSSI gating is applied (for example ADMIN waiting flow).
-- After lock, thresholds are seeded from lock RSSI.
-- On each new race, first gate pass performs one-shot calibration from measured gate peak RSSI (`enter/exit` are recalculated once per race).
-- First valid gate pass starts timing reference and is not counted as a lap.
-- Both scan and timing RSSI loops run at ~`2 ms` period.
+- The timer talks to the ELRS goggles backpack wirelessly over **ESP-NOW**.
+- It auto-binds with a broadcast (`MSP_ELRS_BIND`) and keeps the link alive with
+  periodic probes (an OSD "display" command).
+- If no successful traffic is seen for ~5 s, the link is considered lost and
+  auto-bind restarts. The OSD is redrawn automatically on reconnect.
 
-### 4. Lap detection
+### Channel source
 
-Gate pass logic:
+The channel the timer listens on is chosen externally, never by a blind sweep.
+Two sources are supported (set via `channel_select_source`):
 
-- track RSSI peak above `enter`
-- lap closes only after RSSI drops below `exit` for 100 consecutive samples
-- enforce minimum interval (`min_lap_interval_ms`)
-- hide/ignore very long laps (`> kCfgCooldownMaxMs`, default 60000 ms)
+- **`AUX7` (default)** — an AUX switch/knob on your radio. The AUX microsecond
+  value is matched against 8 configured ranges and mapped to `R1..R8`.
+- **`ADMIN`** — the channel is taken from the CRSF VTX Admin info coming from
+  the goggles.
 
-Outlier (fake lap) filter:
+When the channel changes, lap/session stats are preserved and the timer
+re-calibrates for the new channel. **Both sources now lock the same way**
+(see below) — there is no separate "instant lock" path anymore.
 
-- uses median from up to last 7 laps (`gAllLapHistoryMs`)
-- rejects overly fast anomalies using absolute and ratio floor checks
-- rejected laps are not added to race/session stats
+### Scan → Lock → Timing
 
-### 5. Race and session
+1. In **scan/calibration**, the timer tunes the RX5808 to the selected channel
+   and reads RSSI.
+2. **Arm**: when RSSI rises above `lock_threshold_rssi`, peak capture is armed
+   and the highest RSSI is tracked.
+3. **Lock**: when RSSI then drops below the dynamic exit level
+   (`lock_threshold_rssi + exit_offset_rssi`), the channel locks and the timer
+   switches to **timing** mode. This "peak then drop" pattern mimics a drone
+   approaching and leaving the gate.
+4. On lock, the enter/exit thresholds are seeded from the lock RSSI. On the
+   first gate pass of the race they are re-calibrated once from the measured
+   gate peak.
+5. The gate pass that causes the lock starts the timing reference; the next
+   qualifying pass completes lap 1.
 
-- `gLapCount` - laps in current race
-- `gSessionLapCount` - laps across current session
-- Long disarm (`new_race_after_disarm_ms`) starts a new race on next ARM
-- `S3` - best `R3` over the whole session
-- `R3` - best rolling 3-lap sum for current race
+Both scan and timing RSSI loops run at about a **2 ms** period.
 
-### 6. Lap popup delta metric
+### Lap detection
 
-Popup includes lap delta against a dynamic baseline:
+A gate pass is registered when:
 
-- take last 100 valid session laps
-- sort by lap time
-- take fastest top 50% of currently available laps
-- average that fastest subset
-- display `lastLap - avgTop50pct(last100)`
+- RSSI rose above the **enter** threshold (`T+`), tracking the peak, and
+- RSSI then dropped below the **exit** threshold (`T-`) for **100 consecutive
+  samples** (~200 ms of confirmation), and
+- at least `min_lap_interval_ms` has passed since the last lap.
 
-Popup format:
+Laps longer than 60 s are hidden (the timing reference is kept in sync, but the
+lap is not counted or shown).
 
-- `Lxx ss.cc +dd.cc` or `Lxx ss.cc -dd.cc`
+### Fake-lap (outlier) filter
 
-Meaning:
+To reject impossibly fast readings (e.g. a double trigger or RSSI glitch):
 
-- `+` = slower than baseline
-- `-` = faster than baseline
+- it takes the **median of up to the last 7 laps**,
+- a lap is rejected if it is faster than `max(median − 5 s, 75% of median)`,
+- the filter only activates once at least 4 laps exist, so the very first laps
+  are not checked.
+
+A rejected lap is **not counted** and shows `IGN ss.cc` briefly, but the timing
+reference still advances (the gate pass was real). Rejected laps are still kept
+in the internal history so the median can track a pilot who is genuinely getting
+faster.
+
+### Best laps and stats
+
+- **`SF` (session fastest)** — the fastest lap within the **rolling last 100
+  laps**. An early glitch lap that slips through drops out once 100 newer laps
+  accumulate. A new SF blinks the lap popup for ~5 s.
+- **`RF` (race fastest)** — the fastest lap of the current race (resets each
+  new race).
+- **`S3`** — best 3-consecutive-lap sum over the whole session.
+- **`R3`** — best 3-consecutive-lap sum in the current race.
+- **TOP50 average** — baseline used by the lap popup delta: the average of the
+  fastest 50% of the last 100 valid laps.
+
+### Race and session
+
+- A **race** is one run; a **session** is everything since power-on.
+- With an ARM source configured, timing is paused while disarmed.
+- If you stay disarmed for at least `new_race_after_disarm_ms`, the next ARM
+  starts a **new race** (RF/R3/race lap list reset; session stats kept). Pending
+  lap logs are flushed to SD during a long disarm.
+- A short disarm/re-arm (e.g. a crash + turtle) continues the same race.
+
+### Lap popup
+
+After each lap a popup shows the lap number, lap time, and a delta against the
+TOP50 baseline:
+
+```
+Lxx ss.cc +dd.cc   (slower than baseline)
+Lxx ss.cc -dd.cc   (faster than baseline)
+```
+
+---
 
 ## OSD
 
-### Main OSD elements
+Each element has a configurable position `[col, row, showDuringRace]`.
 
-- `gOsdChannel`
-- `gOsdRssi`
-- `gOsdLapPeakRssi`
-- `gOsdRssiThrUpper`
-- `gOsdRssiThrLower`
-- `gOsdBestLap` (SF)
-- `gOsdBestLap_race` (RF)
-- `gOsdBest3` (S3)
-- `gOsdBest3_race` (R3)
-- `gOsdRaceLaps` (column `L1`, `L2`, ...)
-- `gOsdLapPopup`
+| Field | Key | Meaning |
+|---|---|---|
+| Channel | `gOsdChannel` | Selected channel name (e.g. `R4`) |
+| RSSI | `gOsdRssi` | Current RSSI `R:nnn` |
+| Lap peak RSSI | `gOsdLapPeakRssi` | `LP:nnn` — rolling peak RSSI over the last ~5 s (debug) |
+| Enter threshold | `gOsdRssiThrUpper` | `T+:nnn` |
+| Exit threshold | `gOsdRssiThrLower` | `T-:nnn` |
+| Session fastest | `gOsdBestLap` | `SF` |
+| Race fastest | `gOsdBestLap_race` | `RF` |
+| Session best-3 | `gOsdBest3` | `S3` |
+| Race best-3 | `gOsdBest3_race` | `R3` |
+| Race lap list | `gOsdRaceLaps` | Column `L1`, `L2`, ... |
+| Lap popup | `gOsdLapPopup` | Last lap + delta |
 
-`WAIT VTX ADMIN` is internal and is not configured via `[col,row,flag]`.
-
-`gOsdLapPeakRssi` shows the max RSSI captured while signal was above lower threshold (`T-`) during the last gate pass (debug field).
-
-### OSD config format
-
-All OSD position keys support:
-
-- `[col,row,showDuringRace]`
-
-Examples:
-
-- `gOsdRssi=[12,16,1]`
-- `gOsdBest3_race=[38,2,0]`
+`WAIT VTX ADMIN` is an internal status message (shown in ADMIN mode until a
+channel is known) and is not configurable.
 
 `showDuringRace`:
 
-- `1` = show while race is active
-- `0` = hide while race is active
+- `1` = keep showing while a race is active
+- `0` = hide while a race is active
 
-Notes:
+Race lap list rendering:
 
-- Legacy `[col,row]` format is still supported.
-- If 3rd parameter is missing, firmware treats that as missing config and rewrites `/config.txt` with 3-parameter format.
-- Default for all `showDuringRace` flags is `1`.
+- During a race: shows the current race laps (if enabled).
+- Outside a race: if the current list is empty, it may show the last completed
+  race's laps.
+- If there are more laps than OSD rows, it shows the most recent rows.
 
-### `gOsdRaceLaps` rendering
+---
 
-- During race: renders current race laps (if enabled by `showDuringRace`)
-- Outside race: if current race list is empty, may show last completed race laps
-- If more rows than available OSD height, renders a tail window (latest visible rows)
+## microSD
 
-## SD Behavior
+- **Config file:** `/config.txt` — auto-created with defaults on first boot;
+  missing keys are auto-filled.
+- **Lap log:** `/LOGS/laps.csv` with columns
+  `boot_ms,race_no,lap_no,lap_ms,channel,is_new_best`.
+- Laps are buffered in RAM and flushed to SD (also during long disarms).
+- If the card is removed/fails at runtime, the firmware tries to recover; on
+  repeated failure it disables lap logging until reboot to avoid error spam.
 
-- Config file: `/config.txt`
-- Lap log CSV: `/LOGS/laps.csv`
-- Laps are buffered in RAM, then flushed to SD
-- If SD becomes unavailable during runtime:
-  - firmware attempts recovery
-  - on failure, SD lap logging is disabled until reboot (prevents error spam)
+### USB mass storage (ESP32-S3 only)
 
-CSV columns:
+If the SD is ready, the S3 exposes the card as a USB drive when plugged into a
+computer. While the computer is reading/writing the card, the timer pauses its
+main loop to avoid SD/SPI contention. Unplug USB to resume timing.
 
-- `boot_ms,race_no,lap_no,lap_ms,channel,is_new_best`
+---
 
-## USB MSC (ESP32-S3 only)
-
-- If SD is ready and USB MSC is enabled, SD is exposed as USB mass storage.
-- While host MSC is active, timer main loop is paused to avoid SD/SPI contention.
-
-## `/config.txt` Keys
+## `/config.txt`
 
 ### OSD positions
 
-- `gOsdChannel=[col,row,showDuringRace]`
-- `gOsdRssi=[col,row,showDuringRace]`
-- `gOsdLapPeakRssi=[col,row,showDuringRace]`
-- `gOsdRssiThrUpper=[col,row,showDuringRace]`
-- `gOsdRssiThrLower=[col,row,showDuringRace]`
-- `gOsdBestLap=[col,row,showDuringRace]`
-- `gOsdBestLap_race=[col,row,showDuringRace]`
-- `gOsdBest3=[col,row,showDuringRace]`
-- `gOsdBest3_race=[col,row,showDuringRace]`
-- `gOsdRaceLaps=[col,row,showDuringRace]`
-- `gOsdLapPopup=[col,row,showDuringRace]`
+Format `key=[col,row,showDuringRace]` (legacy `[col,row]` still accepted):
 
-Also supported:
-
-- `osd_main_row`, `osd_main_col`
+- `gOsdChannel`, `gOsdRssi`, `gOsdLapPeakRssi`
+- `gOsdRssiThrUpper`, `gOsdRssiThrLower`
+- `gOsdBestLap`, `gOsdBestLap_race`
+- `gOsdBest3`, `gOsdBest3_race`
+- `gOsdRaceLaps`, `gOsdLapPopup`
+- also `osd_main_row`, `osd_main_col`
 
 ### Timing and RSSI
 
-- `lock_threshold_rssi`
-- `enter_offset_rssi`
-- `exit_offset_rssi`
-- `min_lap_interval_ms`
-- `post_lock_ignore_ms` (legacy key, currently not used by runtime logic)
-- `exit` confirmation is fixed to 100 consecutive below-threshold samples (not from config)
+- `lock_threshold_rssi` — RSSI level that arms peak capture for lock
+- `enter_offset_rssi` — enter threshold offset from the reference RSSI
+- `exit_offset_rssi` — exit threshold offset from the reference RSSI
+- `min_lap_interval_ms` — minimum time between counted laps
+- `post_lock_ignore_ms` — legacy key, not used by current logic
+- exit confirmation is fixed at 100 consecutive below-threshold samples
 
 ### RX5808, channel source, ARM
 
-- `rx5808_mode_select` (`0=AUTO`, `1=FORCE ON`, `2=FORCE OFF`)
-- `channel_select_source` (`ADMIN` or `AUX1..AUX12`)
-- `aux_range_r1..aux_range_r8` (microsecond ranges mapped to `R1..R8`)
-- `arm_source` (`NONE` or `AUX1..AUX12`)
-- `arm_active_min_us`
-- `arm_active_max_us`
-- `new_race_after_disarm_ms`
+- `rx5808_mode_select` — `0=AUTO detect`, `1=FORCE ON`, `2=FORCE OFF`
+- `channel_select_source` — `ADMIN` or `AUX1..AUX12`
+- `aux_range_r1..aux_range_r8` — microsecond ranges mapped to `R1..R8`
+- `arm_source` — `NONE` or `AUX1..AUX12`
+- `arm_active_min_us`, `arm_active_max_us` — AUX range that counts as armed
+- `new_race_after_disarm_ms` — disarm gap that triggers a new race
 
 ### SD
 
-- `sd_lap_logging_enabled` (`0/1`, `true/false`, `on/off`)
+- `sd_lap_logging_enabled` — `0/1`, `true/false`, or `on/off`
 
-## Exact Code Defaults
+### Default values
 
-Defaults in current `main.cpp`:
+```
+osd_main_row=17
+osd_main_col=13
+gOsdChannel=[9,16,1]
+gOsdRssi=[12,16,1]
+gOsdLapPeakRssi=[18,16,1]
+gOsdRssiThrUpper=[25,16,1]
+gOsdRssiThrLower=[32,16,1]
+gOsdBestLap=[9,17,1]
+gOsdBestLap_race=[21,17,1]
+gOsdBest3=[33,17,1]
+gOsdBest3_race=[42,0,1]
+gOsdRaceLaps=[42,1,1]
+gOsdLapPopup=[20,12,1]
+lock_threshold_rssi=100
+enter_offset_rssi=-25
+exit_offset_rssi=-40
+min_lap_interval_ms=8000
+post_lock_ignore_ms=6000
+rx5808_mode_select=0
+sd_lap_logging_enabled=1
+channel_select_source=AUX7
+aux_range_r1=1540-1560
+aux_range_r2=1565-1620
+aux_range_r3=1625-1660
+aux_range_r4=1665-1720
+aux_range_r5=1725-1760
+aux_range_r6=1765-1820
+aux_range_r7=1825-1860
+aux_range_r8=1860-1920
+arm_source=AUX1
+arm_active_min_us=1700
+arm_active_max_us=2100
+new_race_after_disarm_ms=10000
+```
 
-- `osd_main_row=17`
-- `osd_main_col=13`
-- `gOsdChannel=[10,17,1]`
-- `gOsdRssi=[12,16,1]`
-- `gOsdLapPeakRssi=[18,16,1]`
-- `gOsdRssiThrUpper=[25,16,1]`
-- `gOsdRssiThrLower=[32,16,1]`
-- `gOsdBestLap=[13,17,1]`
-- `gOsdBestLap_race=[22,17,1]`
-- `gOsdBest3=[31,17,1]`
-- `gOsdBest3_race=[38,2,1]`
-- `gOsdRaceLaps=[38,3,1]`
-- `gOsdLapPopup=[18,12,1]`
-- `lock_threshold_rssi=100`
-- `enter_offset_rssi=-25`
-- `exit_offset_rssi=-40`
-- `min_lap_interval_ms=8000`
-- `post_lock_ignore_ms=6000`
-- `rx5808_mode_select=0`
-- `sd_lap_logging_enabled=1`
-- `channel_select_source=AUX7`
-- `aux_range_r1=1540-1560`
-- `aux_range_r2=1565-1620`
-- `aux_range_r3=1625-1660`
-- `aux_range_r4=1665-1720`
-- `aux_range_r5=1725-1760`
-- `aux_range_r6=1765-1820`
-- `aux_range_r7=1825-1860`
-- `aux_range_r8=1860-1920`
-- `arm_source=AUX1`
-- `arm_active_min_us=1700`
-- `arm_active_max_us=2100`
-- `new_race_after_disarm_ms=10000`
+### Auto-clamped ranges
 
-Auto-clamp ranges:
+Out-of-range values are clamped automatically:
 
-- OSD `row`: `0..17`
-- OSD `col`: `0..50`
+- OSD `row`: `0..17`, OSD `col`: `0..50`
 - `lock_threshold_rssi`: `60..230`
 - `enter_offset_rssi`, `exit_offset_rssi`: `-60..60`
 - `min_lap_interval_ms`: `1000..60000`
 - `new_race_after_disarm_ms`: `0..300000`
+- after calibration: `enter` clamps to `80..100`, `exit` to `60..75`
 
-Threshold output clamps (after calibration):
+---
 
-- `enter`: `80..100`
-- `exit`: `60..75`
+## Using it
 
-## Useful Serial Diagnostics
+1. **Insert the microSD** and power the timer (USB or 5 V). On first boot it
+   creates `/config.txt` with defaults. Edit that file to tune positions,
+   thresholds, AUX ranges, and ARM, then power-cycle to apply.
+2. **Power your goggles** with the ELRS backpack. The timer auto-binds; the OSD
+   appears once linked.
+3. **Bind your ELRS receiver** to your radio and wire it to the CRSF pins.
+4. **Select the channel.** With the default `AUX7` source, move your AUX7
+   switch/knob to the position whose microsecond range matches the channel you
+   are flying (`R1..R8`). The timer tunes the RX5808, syncs the goggles, then
+   calibrates.
+5. **ARM.** With the default `AUX1` ARM source, flip ARM to the active range
+   (1700–2100 µs) to allow timing. With `arm_source=NONE`, timing is always
+   allowed.
+6. **Fly the gate.** Each clean pass closes a lap, updates the OSD stats, and
+   logs to SD. A new personal best blinks the popup.
+7. **Start a fresh race** by staying disarmed for at least
+   `new_race_after_disarm_ms`, then ARM again.
 
-On boot, check:
+---
 
-- `Settings: ...`
-- `OSD elements: ...`
-- `OSD showDuringRace: ...`
-- `Channel select source: ...`
-- `ARM source: ...`
-- `RX5808 ...`
+## Serial diagnostics (115200 baud)
 
-During laps, check:
+On boot, useful lines:
 
-- `LAP ...`
-- `TOP50 AVG ... DELTA ...`
-- `Lap ignored as outlier ...` (if outlier filter triggers)
+- `Settings: ...`, `OSD elements: ...`, `OSD showDuringRace: ...`
+- `Channel select source: ...`, `ARM source: ...`, `RX5808 ...`
 
-## Not used in this firmware
+During flying:
 
-No active logic found for:
+- `LAP ...` — a counted lap
+- `TOP50 AVG ... DELTA ...` — baseline and lap delta
+- `Lap ignored as outlier ...` — the fake-lap filter rejected a pass
 
-- buzzer
-- WS2812 LED
-- battery voltage input
-- separate mode switch input
+---
+
+## Not included
+
+There is no active logic for a buzzer, WS2812 LEDs, battery-voltage input, or a
+separate mode switch — selection and ARM come from your radio's AUX channels.
